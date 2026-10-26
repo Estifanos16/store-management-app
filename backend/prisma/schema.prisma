@@ -1,0 +1,273 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  OWNER
+  SELLER
+}
+
+enum ItemStatus {
+  IN_STOCK
+  SOLD
+  RETURNED
+  DAMAGED
+}
+
+enum SaleStatus {
+  COMPLETED
+  PENDING
+  FAILED
+}
+
+enum PaymentMethod {
+  CASH
+  MOBILE_MONEY
+  CARD
+  BANK_TRANSFER
+}
+
+enum SyncState {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+model Shop {
+  id          String   @id @default(cuid())
+  name        String
+  address     String?
+  phone       String?
+  currency    String   @default("ETB")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  memberships    UserShopAccess[]
+  products      Product[]
+  categories    Category[]
+  items         Item[]
+  sales         Sale[]
+  expenses      Expense[]
+  returns       ReturnRecord[]
+  syncOperations SyncOperation[]
+  inventoryMoves InventoryMovement[]
+}
+
+model User {
+  id           String          @id @default(cuid())
+  name         String
+  email        String          @unique
+  passwordHash String
+  active       Boolean         @default(true)
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+
+  memberships     UserShopAccess[]
+  refreshTokens   RefreshToken[]
+  createdItems    Item[]           @relation("ItemCreatedBy")
+  sales           Sale[]           @relation("SaleSeller")
+  returns         ReturnRecord[]   @relation("ReturnCreatedBy")
+  syncOps         SyncOperation[]  @relation("SyncCreatedBy")
+  inventoryMoves  InventoryMovement[] @relation("MovementCreatedBy")
+}
+
+model UserShopAccess {
+  id        String   @id @default(cuid())
+  userId    String
+  shopId    String
+  role      UserRole
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  shop Shop @relation(fields: [shopId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, shopId])
+  @@index([shopId, role])
+}
+
+model RefreshToken {
+  id        String    @id @default(cuid())
+  userId    String
+  tokenHash String    @unique
+  revokedAt DateTime?
+  expiresAt DateTime
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Category {
+  id          String   @id @default(cuid())
+  shopId      String
+  name        String
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  shop     Shop      @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  products Product[]
+
+  @@unique([shopId, name])
+}
+
+model Product {
+  id                  String    @id @default(cuid())
+  shopId              String
+  categoryId          String?
+  name                String
+  description         String?
+  brand               String?
+  defaultSellingPrice Decimal   @db.Decimal(12, 2)
+  active              Boolean   @default(true)
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  shop      Shop      @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  category  Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  items     Item[]
+  saleItems SaleItem[]
+
+  @@index([shopId, active])
+}
+
+model Item {
+  id              String     @id @default(cuid())
+  shopId          String
+  productId       String
+  publicIdentifier String    @unique
+  uniqueQrCode    String     @unique
+  status          ItemStatus @default(IN_STOCK)
+  costPrice       Decimal    @db.Decimal(12, 2)
+  sellingPrice     Decimal?   @db.Decimal(12, 2)
+  registeredAt    DateTime   @default(now())
+  soldAt          DateTime?
+  createdByUserId String?
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+
+  shop          Shop               @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  product       Product            @relation(fields: [productId], references: [id], onDelete: Restrict)
+  createdBy     User?              @relation("ItemCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  saleItems     SaleItem[]
+  returns       ReturnRecord[]
+  inventoryMoves InventoryMovement[]
+
+  @@index([shopId, status])
+  @@index([shopId, productId])
+}
+
+model Sale {
+  id            String        @id @default(cuid())
+  shopId        String
+  sellerId      String
+  saleNumber    String        @unique
+  status        SaleStatus    @default(COMPLETED)
+  paymentMethod PaymentMethod @default(CASH)
+  discount      Decimal       @db.Decimal(12, 2) @default(0)
+  totalAmount   Decimal       @db.Decimal(12, 2)
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  shop      Shop       @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  seller    User       @relation("SaleSeller", fields: [sellerId], references: [id], onDelete: Restrict)
+  saleItems SaleItem[]
+  returns   ReturnRecord[]
+
+  @@index([shopId, createdAt])
+}
+
+model SaleItem {
+  id          String  @id @default(cuid())
+  saleId      String
+  itemId      String
+  productId   String
+  unitPrice   Decimal @db.Decimal(12, 2)
+  discount    Decimal @db.Decimal(12, 2) @default(0)
+  totalAmount Decimal @db.Decimal(12, 2)
+  createdAt   DateTime @default(now())
+
+  sale    Sale    @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  item    Item    @relation(fields: [itemId], references: [id], onDelete: Restrict)
+  product Product @relation(fields: [productId], references: [id], onDelete: Restrict)
+
+  @@index([saleId])
+  @@index([itemId])
+}
+
+model ReturnRecord {
+  id               String    @id @default(cuid())
+  shopId           String
+  saleId           String?
+  itemId           String
+  createdByUserId  String
+  reason           String
+  status           ItemStatus @default(RETURNED)
+  createdAt        DateTime   @default(now())
+
+  shop      Shop @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  sale      Sale? @relation(fields: [saleId], references: [id], onDelete: SetNull)
+  item      Item @relation(fields: [itemId], references: [id], onDelete: Restrict)
+  createdBy User @relation("ReturnCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict)
+
+  @@index([shopId, createdAt])
+}
+
+model Expense {
+  id          String   @id @default(cuid())
+  shopId      String
+  category    String
+  description String
+  amount      Decimal  @db.Decimal(12, 2)
+  expenseDate DateTime @default(now())
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  shop Shop @relation(fields: [shopId], references: [id], onDelete: Cascade)
+
+  @@index([shopId, expenseDate])
+}
+
+model InventoryMovement {
+  id                String    @id @default(cuid())
+  shopId            String
+  itemId            String
+  fromStatus        ItemStatus?
+  toStatus          ItemStatus
+  reason            String?
+  performedByUserId String?
+  createdAt         DateTime  @default(now())
+
+  shop        Shop @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  item        Item @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  performedBy User? @relation("MovementCreatedBy", fields: [performedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([shopId, itemId])
+}
+
+model SyncOperation {
+  id              String    @id @default(cuid())
+  shopId          String
+  deviceId        String?
+  entityType      String
+  entityId        String?
+  operation       String
+  payload         Json
+  status          SyncState @default(PENDING)
+  error           String?
+  createdByUserId String?
+  createdAt       DateTime  @default(now())
+  processedAt     DateTime?
+
+  shop      Shop @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  createdBy User? @relation("SyncCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+
+  @@index([shopId, status, createdAt])
+}
