@@ -104,7 +104,7 @@ export default function ProductsListScreen({ user }: ProductsListScreenProps) {
   const renderProduct = ({ item }: { item: Product }) => (
     <TouchableOpacity
       style={styles.productCard}
-      onPress={() => router.push({ pathname: '/modal', params: { productId: item.id } })}
+      onPress={() => router.push(`/products/${item.id}`)}
     >
       <View style={styles.productInfo}>
         <Text style={[styles.productName, { color: Colors[colorScheme].text }]}>{item.name}</Text>
@@ -315,7 +315,7 @@ export default function ProductsListScreen({ user }: ProductsListScreenProps) {
         {canAddProduct && (
           <TouchableOpacity
             style={styles.addButton}
-            onPress={() => router.push({ pathname: '/modal', params: { mode: 'add' } })}
+            onPress={() => router.push('/products/new')}
           >
             <Text style={styles.addButtonText}>+ Add</Text>
           </TouchableOpacity>

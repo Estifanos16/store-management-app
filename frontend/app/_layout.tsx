@@ -8,6 +8,7 @@ import { useColorScheme } from '@/components/useColorScheme';
 import { authApi } from '../src/services/api/authApi';
 import { User } from '../src/types/auth';
 import { AuthProvider } from '../src/contexts/AuthContext';
+import { ThemeProvider as CustomThemeProvider } from '../src/contexts/ThemeContext';
 
 export {
   // Catch any errors thrown by the Layout component.
@@ -78,9 +79,11 @@ export default function RootLayout() {
   }
 
   return (
-    <AuthProvider>
-      <RootLayoutNav isAuthenticated={isAuthenticated} user={user} />
-    </AuthProvider>
+    <CustomThemeProvider>
+      <AuthProvider>
+        <RootLayoutNav isAuthenticated={isAuthenticated} user={user} />
+      </AuthProvider>
+    </CustomThemeProvider>
   );
 }
 

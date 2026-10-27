@@ -1,5 +1,5 @@
 import { SymbolView } from 'expo-symbols';
-import { Link, Tabs } from 'expo-router';
+import { Link, Tabs, useRouter } from 'expo-router';
 import { Platform, Pressable } from 'react-native';
 
 import Colors from '@/constants/Colors';
@@ -10,6 +10,23 @@ import { useAuth } from '@/src/contexts/AuthContext';
 export default function TabLayout() {
   const colorScheme = useColorScheme();
   const { isOwner } = useAuth();
+  const router = useRouter();
+
+  const HeaderGearButton = () => (
+    <Pressable
+      onPress={() => router.push('/modal')}
+      style={({ pressed }) => ({
+        opacity: pressed ? 0.5 : 1,
+        marginRight: 15,
+      })}
+    >
+      <SymbolView
+        name={{ ios: 'gearshape', android: 'settings', web: 'settings' }}
+        tintColor={Colors[colorScheme].text}
+        size={24}
+      />
+    </Pressable>
+  );
 
   return (
     <Tabs
@@ -23,6 +40,7 @@ export default function TabLayout() {
         name="index"
         options={{
           title: 'Dashboard',
+          headerRight: () => <HeaderGearButton />,
           tabBarIcon: ({ color }) => (
             <SymbolView
               name={{
@@ -40,6 +58,7 @@ export default function TabLayout() {
         name="products"
         options={{
           title: 'Products',
+          headerRight: () => <HeaderGearButton />,
           tabBarIcon: ({ color }) => (
             <SymbolView
               name={{
@@ -57,6 +76,7 @@ export default function TabLayout() {
         name="two"
         options={{
           title: 'Sales',
+          headerRight: () => <HeaderGearButton />,
           tabBarIcon: ({ color }) => (
             <SymbolView
               name={{
@@ -75,6 +95,7 @@ export default function TabLayout() {
           name="reports"
           options={{
             title: 'Reports',
+            headerRight: () => <HeaderGearButton />,
             tabBarIcon: ({ color }) => (
               <SymbolView
                 name={{
@@ -94,6 +115,7 @@ export default function TabLayout() {
           name="settings"
           options={{
             title: 'Settings',
+            headerRight: () => <HeaderGearButton />,
             tabBarIcon: ({ color }) => (
               <SymbolView
                 name={{

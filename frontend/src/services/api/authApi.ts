@@ -10,6 +10,15 @@ const TOKEN_KEY = 'auth_token';
 
 // Mock user data for development
 const MOCK_USERS: { [key: string]: User } = {
+  'admin@demo.com': {
+    id: 'user-0',
+    name: 'Admin User',
+    email: 'admin@demo.com',
+    phone: '+1111111111',
+    role: 'owner',
+    shopId: 'shop-1',
+    active: true,
+  },
   'owner@demo.com': {
     id: 'user-1',
     name: 'Store Owner',
@@ -30,7 +39,11 @@ const MOCK_USERS: { [key: string]: User } = {
   },
 };
 
-const MOCK_PASSWORD = 'demo123';
+const MOCK_PASSWORDS: { [key: string]: string } = {
+  'admin@demo.com': 'admin123',
+  'owner@demo.com': 'demo123',
+  'seller@demo.com': 'demo123',
+};
 
 interface LoginResponse {
   user: User;
@@ -46,7 +59,8 @@ export const authApi = {
   async login(identifier: string, password: string): Promise<LoginResponse> {
     // Try mock login first for development
     const mockUser = MOCK_USERS[identifier] || MOCK_USERS[identifier.toLowerCase()];
-    if (mockUser && password === MOCK_PASSWORD) {
+    const mockPassword = MOCK_PASSWORDS[identifier] || MOCK_PASSWORDS[identifier.toLowerCase()];
+    if (mockUser && password === mockPassword) {
       const mockToken = `mock-token-${mockUser.id}-${Date.now()}`;
       await SecureStore.setItemAsync(TOKEN_KEY, mockToken);
       await SecureStore.setItemAsync('mock_user_id', mockUser.id);

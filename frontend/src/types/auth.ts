@@ -1,18 +1,2 @@
-export type UserRole = 'owner' | 'seller';
-
-export interface User {
-  id: string;
-  name: string;
-  email?: string;
-  phone?: string;
-  role: UserRole;
-  shopId: string;
-  active: boolean;
-}
-
-export interface AuthState {
-  user: User | null;
-  token: string | null;
-  isLoading: boolean;
-  isAuthenticated: boolean;
-}
+// Import types from shared package - DO NOT redefine them here
+export { User, UserRole, AuthState } from '@store-management/shared';

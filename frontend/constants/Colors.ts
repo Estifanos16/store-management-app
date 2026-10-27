@@ -1,59 +1,80 @@
 // Store Management App Color Palette
-// Deep teal primary with amber accent for a trustworthy, modern look
+// Import from shared package - DO NOT hard-code hex values here
+import { theme } from '@store-management/shared';
 
 export default {
   light: {
     // Brand colors
-    primary: '#0F766E',
-    primaryDark: '#115E59',
-    accent: '#F59E0B',
+    primary: theme.colors.primary,
+    primaryDark: theme.colors.primaryDark,
+    accent: theme.colors.accent,
     
     // Backgrounds
-    background: '#F8FAFC',
-    card: '#FFFFFF',
+    background: theme.colors.background,
+    card: theme.colors.surface,
     
     // Text
-    text: '#0F172A',
-    textSecondary: '#64748B',
+    text: theme.colors.text,
+    textSecondary: theme.colors.textMuted,
     
     // UI elements
-    border: '#E2E8F0',
-    tint: '#0F766E',
-    tabIconDefault: '#94A3B8',
-    tabIconSelected: '#0F766E',
+    border: theme.colors.border,
+    tint: theme.colors.primary,
+    tabIconDefault: theme.colors.textMuted,
+    tabIconSelected: theme.colors.primary,
     
     // Status colors
-    success: '#16A34A',
-    warning: '#F59E0B',
-    error: '#DC2626',
-    info: '#2563EB',
-    neutral: '#64748B',
+    success: theme.colors.success,
+    successBg: theme.colors.successBg,
+    successText: theme.colors.successText,
+    warning: theme.colors.warning,
+    warningBg: theme.colors.warningBg,
+    warningText: theme.colors.warningText,
+    error: theme.colors.error,
+    errorBg: theme.colors.errorBg,
+    errorText: theme.colors.errorText,
+    info: theme.colors.info,
+    infoBg: theme.colors.infoBg,
+    infoText: theme.colors.infoText,
+    neutral: theme.colors.neutral,
+    neutralBg: theme.colors.neutralBg,
+    neutralText: theme.colors.neutralText,
   },
   dark: {
     // Brand colors
-    primary: '#2DD4BF',
-    primaryDark: '#0F766E',
-    accent: '#F59E0B',
+    primary: theme.dark.primary,
+    primaryDark: theme.colors.primaryDark,
+    accent: theme.colors.accent,
     
     // Backgrounds
-    background: '#0B1220',
-    card: '#111827',
+    background: theme.dark.background,
+    card: theme.dark.surface,
     
     // Text
-    text: '#F1F5F9',
-    textSecondary: '#94A3B8',
+    text: theme.dark.text,
+    textSecondary: theme.dark.textMuted,
     
     // UI elements
-    border: '#1E293B',
-    tint: '#2DD4BF',
-    tabIconDefault: '#475569',
-    tabIconSelected: '#2DD4BF',
+    border: theme.dark.border,
+    tint: theme.dark.primary,
+    tabIconDefault: theme.colors.textMuted,
+    tabIconSelected: theme.dark.primary,
     
-    // Status colors
-    success: '#22C55E',
-    warning: '#F59E0B',
-    error: '#EF4444',
-    info: '#3B82F6',
-    neutral: '#94A3B8',
+    // Status colors (same in dark mode)
+    success: theme.colors.success,
+    successBg: theme.colors.successBg,
+    successText: theme.colors.successText,
+    warning: theme.colors.warning,
+    warningBg: theme.colors.warningBg,
+    warningText: theme.colors.warningText,
+    error: theme.colors.error,
+    errorBg: theme.colors.errorBg,
+    errorText: theme.colors.errorText,
+    info: theme.colors.info,
+    infoBg: theme.colors.infoBg,
+    infoText: theme.colors.infoText,
+    neutral: theme.colors.neutral,
+    neutralBg: theme.colors.neutralBg,
+    neutralText: theme.colors.neutralText,
   },
 };
