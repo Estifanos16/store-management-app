@@ -16,7 +16,22 @@ const saleCreateSchema = z.object({
 });
 
 const salesRoutes: FastifyPluginAsync = async (fastify) => {
-  fastify.get('/sales', async (request, reply) => {
+  fastify.get('/sales', {
+    schema: {
+      tags: ['Sales'],
+      summary: 'List shop sales',
+      description: 'Returns sales records in the selected shop.',
+      querystring: {
+        type: 'object',
+        required: ['shopId'],
+        properties: { shopId: { type: 'string' } },
+      },
+      response: {
+        200: { type: 'object', properties: { sales: { type: 'array' } } },
+        400: { type: 'object', properties: { error: { type: 'string' }, message: { type: 'string' } } },
+      },
+    },
+  }, async (request, reply) => {
     const shopId = (request.query as any)?.shopId as string | undefined;
     if (!shopId) {
       reply.code(400).send({ error: 'Bad Request', message: 'shopId is required.' });
@@ -36,7 +51,38 @@ const salesRoutes: FastifyPluginAsync = async (fastify) => {
     reply.send({ sales });
   });
 
-  fastify.post('/sales', async (request, reply) => {
+  fastify.post('/sales', {
+    schema: {
+      tags: ['Sales'],
+      summary: 'Create a sale',
+      description: 'Sales are created only for currently available in-stock items in the authenticated shop.',
+      body: {
+        type: 'object',
+        required: ['shopId', 'items'],
+        properties: {
+          shopId: { type: 'string' },
+          paymentMethod: { type: 'string', enum: ['CASH', 'MOBILE_MONEY', 'CARD', 'BANK_TRANSFER'] },
+          discount: { type: 'number' },
+          items: {
+            type: 'array',
+            items: {
+              type: 'object',
+              required: ['itemId'],
+              properties: {
+                itemId: { type: 'string' },
+                unitPrice: { type: 'number' },
+                discount: { type: 'number' },
+              },
+            },
+          },
+        },
+      },
+      response: {
+        201: { type: 'object', properties: { sale: { type: 'object' } } },
+        401: { type: 'object', properties: { error: { type: 'string' }, message: { type: 'string' } } },
+      },
+    },
+  }, async (request, reply) => {
     const payload = saleCreateSchema.parse(request.body);
     await fastify.requireShopAccess(payload.shopId)(request, reply);
     const requestUser = (request as any).user as any;
@@ -137,7 +183,28 @@ const salesRoutes: FastifyPluginAsync = async (fastify) => {
     reply.code(201).send({ sale: result });
   });
 
-  fastify.get('/sales/:saleId', async (request, reply) => {
+  fastify.get('/sales/:saleId', {
+    schema: {
+      tags: ['Sales'],
+      summary: 'Get sale detail',
+      description: 'Returns the sale record and sold items for a specific shop sale.',
+      params: {
+        type: 'object',
+        required: ['saleId'],
+        properties: { saleId: { type: 'string' } },
+      },
+      querystring: {
+        type: 'object',
+        required: ['shopId'],
+        properties: { shopId: { type: 'string' } },
+      },
+      response: {
+        200: { type: 'object', properties: { sale: { type: 'object' } } },
+        400: { type: 'object', properties: { error: { type: 'string' }, message: { type: 'string' } } },
+        404: { type: 'object', properties: { error: { type: 'string' }, message: { type: 'string' } } },
+      },
+    },
+  }, async (request, reply) => {
     const { saleId } = request.params as { saleId: string };
     const shopId = (request.query as any)?.shopId as string | undefined;
     if (!shopId) {

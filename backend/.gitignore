@@ -6,3 +6,4 @@ dist
 coverage
 .prisma
 .DS_Store
+swager.md

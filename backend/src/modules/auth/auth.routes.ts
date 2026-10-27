@@ -72,7 +72,32 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
     return null;
   };
 
-  fastify.post('/register', async (request, reply) => {
+  fastify.post('/register', {
+    schema: {
+      tags: ['Auth'],
+      summary: 'Register a new shop owner',
+      description: 'Create a new user, assign an owner role to a shop, and return access tokens.',
+      security: [],
+      body: {
+        type: 'object',
+        required: ['name', 'email', 'password', 'shopName'],
+        properties: {
+          name: { type: 'string', minLength: 2 },
+          email: { type: 'string', format: 'email' },
+          password: { type: 'string', minLength: 8 },
+          shopName: { type: 'string', minLength: 2 },
+          address: { type: 'string' },
+          phone: { type: 'string' },
+          currency: { type: 'string', default: 'ETB' },
+        },
+      },
+      response: {
+        201: { type: 'object', properties: { accessToken: { type: 'string' }, refreshToken: { type: 'string' }, user: { type: 'object' } } },
+        400: { type: 'object', properties: { error: { type: 'string' }, message: { type: 'string' } } },
+        409: { type: 'object', properties: { error: { type: 'string' }, message: { type: 'string' } } },
+      },
+    },
+  }, async (request, reply) => {
     const payload = registerSchema.parse(request.body);
     const email = payload.email.toLowerCase();
 
@@ -115,7 +140,27 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
     reply.code(201).send(result);
   });
 
-  fastify.post('/login', async (request, reply) => {
+  fastify.post('/login', {
+    schema: {
+      tags: ['Auth'],
+      summary: 'Login and issue tokens',
+      description: 'Authenticate an existing user and issue access and refresh tokens.',
+      security: [],
+      body: {
+        type: 'object',
+        required: ['email', 'password'],
+        examples: [{ email: 'admin@example.com', password: 'your-password' }],
+        properties: {
+          email: { type: 'string', format: 'email' },
+          password: { type: 'string', minLength: 8 },
+        },
+      },
+      response: {
+        200: { type: 'object', properties: { accessToken: { type: 'string' }, refreshToken: { type: 'string' }, user: { type: 'object' } } },
+        401: { type: 'object', properties: { error: { type: 'string' }, message: { type: 'string' } } },
+      },
+    },
+  }, async (request, reply) => {
     const body = loginSchema.parse(request.body);
     const user = await prisma.user.findUnique({
       where: { email: body.email.toLowerCase() },
@@ -136,7 +181,25 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
     reply.send({ user: serializeUser(user), ...tokenPair });
   });
 
-  fastify.post('/refresh', async (request, reply) => {
+  fastify.post('/refresh', {
+    schema: {
+      tags: ['Auth'],
+      summary: 'Refresh access token',
+      description: 'Exchange a valid refresh token for a new access token pair.',
+      security: [],
+      body: {
+        type: 'object',
+        required: ['refreshToken'],
+        properties: {
+          refreshToken: { type: 'string', minLength: 16 },
+        },
+      },
+      response: {
+        200: { type: 'object', properties: { accessToken: { type: 'string' }, refreshToken: { type: 'string' } } },
+        401: { type: 'object', properties: { error: { type: 'string' }, message: { type: 'string' } } },
+      },
+    },
+  }, async (request, reply) => {
     const payload = refreshSchema.parse(request.body);
     const validToken = await findValidRefreshToken(payload.refreshToken);
 
@@ -154,7 +217,23 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
     reply.send({ accessToken: newPair.accessToken, refreshToken: newPair.refreshToken });
   });
 
-  fastify.post('/logout', async (request, reply) => {
+  fastify.post('/logout', {
+    schema: {
+      tags: ['Auth'],
+      summary: 'Logout current user',
+      description: 'Invalidate the refresh token or all active tokens for the authenticated user.',
+      body: {
+        type: 'object',
+        properties: {
+          refreshToken: { type: 'string' },
+        },
+      },
+      response: {
+        200: { type: 'object', properties: { success: { type: 'boolean' }, message: { type: 'string' } } },
+        401: { type: 'object', properties: { error: { type: 'string' }, message: { type: 'string' } } },
+      },
+    },
+  }, async (request, reply) => {
     await fastify.requireAuth(request, reply);
     const requestUser = (request as any).user as any;
     if (!requestUser) {
@@ -182,7 +261,18 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
     reply.send({ success: true, message: 'Logged out successfully.' });
   });
 
-  fastify.get('/me', async (request, reply) => {
+  fastify.get('/me', {
+    schema: {
+      tags: ['Auth'],
+      summary: 'Get current user profile',
+      description: 'Returns the authenticated user and active shop memberships.',
+      response: {
+        200: { type: 'object', properties: { id: { type: 'string' }, name: { type: 'string' }, email: { type: 'string' }, active: { type: 'boolean' }, memberships: { type: 'array' } } },
+        401: { type: 'object', properties: { error: { type: 'string' }, message: { type: 'string' } } },
+        404: { type: 'object', properties: { error: { type: 'string' }, message: { type: 'string' } } },
+      },
+    },
+  }, async (request, reply) => {
     await fastify.requireAuth(request, reply);
     const requestUser = (request as any).user as any;
     if (!requestUser) {
