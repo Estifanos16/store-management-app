@@ -6,54 +6,79 @@ import { SymbolView } from 'expo-symbols';
 import Colors from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
 import { Button, Card, StatusChip } from '@/src/components/common';
+import { itemsApi } from '@/src/services/api/itemsApi';
+import { useAuth } from '@/src/contexts/AuthContext';
 
 export default function ScannerItemScreen() {
   const { code } = useLocalSearchParams();
   const router = useRouter();
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme];
+  const { currentShop } = useAuth();
   
   const [item, setItem] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [useMock, setUseMock] = useState(false);
 
   useEffect(() => {
     loadItem();
-  }, [code]);
+  }, [code, currentShop]);
 
   const loadItem = async () => {
+    if (!code) return;
+    
     try {
       setIsLoading(true);
       setError(null);
       
-      // Mock item data - replace with API call
-      // In production: const item = await itemsApi.getItemByQRCode(code);
-      setTimeout(() => {
-        setItem({
-          id: code,
-          publicIdentifier: 'ITEM-001234',
-          name: 'Wireless Mouse',
-          category: 'Electronics',
-          status: 'in_stock',
-          costPrice: 15.00,
-          sellingPrice: 25.00,
-          registeredAt: new Date().toISOString(),
-          product: {
-            id: 'prod-1',
-            name: 'Wireless Mouse',
-            description: 'High-quality wireless mouse with ergonomic design',
-            brand: 'Logitech',
-          },
-        });
-        setIsLoading(false);
-      }, 500);
+      // Try real API first if shop is available
+      if (currentShop && !useMock) {
+        try {
+          const data = await itemsApi.getItemByQRCode(code as string, currentShop.id);
+          setItem(data.item);
+        } catch (apiError) {
+          console.log('API lookup failed, falling back to mock:', apiError);
+          // Fall back to mock if API fails
+          setUseMock(true);
+          loadMockItem();
+          return;
+        }
+      } else {
+        // Use mock data
+        loadMockItem();
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load item');
+    } finally {
       setIsLoading(false);
     }
   };
 
+  const loadMockItem = () => {
+    setTimeout(() => {
+      setItem({
+        id: code,
+        publicIdentifier: 'ITEM-001234',
+        name: 'Wireless Mouse',
+        category: 'Electronics',
+        status: 'in_stock',
+        costPrice: 15.00,
+        sellingPrice: 25.00,
+        registeredAt: new Date().toISOString(),
+        product: {
+          id: 'prod-1',
+          name: 'Wireless Mouse',
+          description: 'High-quality wireless mouse with ergonomic design',
+          brand: 'Logitech',
+        },
+      });
+      setIsLoading(false);
+    }, 500);
+  };
+
   const handleAddToCart = () => {
+    // For now, just alert success - in future, integrate with cart context
     Alert.alert(
       'Add to Cart',
       'Item added to cart successfully!',
@@ -133,24 +158,30 @@ export default function ScannerItemScreen() {
           </TouchableOpacity>
         </View>
 
+        {/* Mock Data Indicator */}
+        {useMock && (
+          <Card style={[styles.mockCard, { backgroundColor: colors.warning + '20' }]}>
+            <Text style={[styles.mockText, { color: colors.warning }]}>
+              ⚠️ Using mock data - QR code not found in inventory
+            </Text>
+          </Card>
+        )}
+
         {/* Item Card */}
         <Card style={styles.itemCard}>
           <View style={styles.itemHeader}>
             <View style={styles.itemInfo}>
-              <Text style={[styles.itemName, { color: colors.text }]}>{item.name}</Text>
+              <Text style={[styles.itemName, { color: colors.text }]}>
+                {item.product?.name || item.name}
+              </Text>
               <Text style={[styles.itemSku, { color: colors.textSecondary }]}>
                 SKU: {item.publicIdentifier}
               </Text>
             </View>
-            <StatusChip status={item.status} />
+            <StatusChip status={item.status.toLowerCase()} />
           </View>
 
           <View style={styles.divider} />
-
-          <View style={styles.detailRow}>
-            <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>Category</Text>
-            <Text style={[styles.detailValue, { color: colors.text }]}>{item.category}</Text>
-          </View>
 
           <View style={styles.detailRow}>
             <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>Brand</Text>
@@ -165,13 +196,13 @@ export default function ScannerItemScreen() {
             <View style={styles.priceRow}>
               <Text style={[styles.priceLabel, { color: colors.textSecondary }]}>Selling Price</Text>
               <Text style={[styles.sellingPrice, { color: colors.primary }]}>
-                ETB {item.sellingPrice.toFixed(2)}
+                ETB {(item.sellingPrice || 0).toFixed(2)}
               </Text>
             </View>
             <View style={styles.priceRow}>
               <Text style={[styles.priceLabel, { color: colors.textSecondary }]}>Cost Price</Text>
               <Text style={[styles.costPrice, { color: colors.text }]}>
-                ETB {item.costPrice.toFixed(2)}
+                ETB {(item.costPrice || 0).toFixed(2)}
               </Text>
             </View>
           </View>
@@ -186,9 +217,9 @@ export default function ScannerItemScreen() {
           </View>
 
           <View style={styles.detailRow}>
-            <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>Item ID</Text>
+            <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>QR Code</Text>
             <Text style={[styles.detailValue, styles.itemId, { color: colors.textSecondary }]}>
-              {item.id}
+              {item.uniqueQrCode}
             </Text>
           </View>
         </Card>
@@ -366,5 +397,15 @@ const styles = StyleSheet.create({
   actions: {
     gap: 12,
     marginTop: 8,
+  },
+  mockCard: {
+    padding: 12,
+    marginBottom: 16,
+    borderRadius: 8,
+  },
+  mockText: {
+    fontSize: 13,
+    fontWeight: '600',
+    textAlign: 'center',
   },
 });

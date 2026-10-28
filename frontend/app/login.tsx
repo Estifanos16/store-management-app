@@ -19,6 +19,7 @@ export default function LoginScreen() {
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [useMock, setUseMock] = useState(false);
   const router = useRouter();
   const colorScheme = useColorScheme();
 
@@ -30,12 +31,17 @@ export default function LoginScreen() {
 
     setIsLoading(true);
     try {
+      // Enable mock mode if selected
+      if (useMock) {
+        await authApi.setUseMock(true);
+      }
+      
       const response = await authApi.login(identifier, password);
       Alert.alert('Success', 'Login successful', [
         {
           text: 'OK',
           onPress: () => {
-            router.replace('/(tabs)');
+            router.replace('/shop-selection');
           },
         },
       ]);
@@ -114,6 +120,33 @@ export default function LoginScreen() {
       fontSize: 14,
       fontWeight: '500',
     },
+    mockToggle: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginTop: 16,
+    },
+    checkbox: {
+      width: 20,
+      height: 20,
+      borderWidth: 2,
+      borderColor: Colors[colorScheme].border,
+      borderRadius: 4,
+      marginRight: 10,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    checkboxChecked: {
+      backgroundColor: Colors[colorScheme].primary,
+      borderColor: Colors[colorScheme].primary,
+    },
+    checkmark: {
+      color: '#fff',
+      fontSize: 14,
+      fontWeight: 'bold',
+    },
+    mockText: {
+      fontSize: 14,
+    },
   });
 
   return (
@@ -166,6 +199,18 @@ export default function LoginScreen() {
 
       <TouchableOpacity style={styles.forgotPassword}>
         <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        style={styles.mockToggle}
+        onPress={() => setUseMock(!useMock)}
+      >
+        <View style={[styles.checkbox, useMock && styles.checkboxChecked]}>
+          {useMock && <Text style={styles.checkmark}>✓</Text>}
+        </View>
+        <Text style={[styles.mockText, { color: Colors[colorScheme].text }]}>
+          Use Mock Mode (Demo)
+        </Text>
       </TouchableOpacity>
     </KeyboardAvoidingView>
   );

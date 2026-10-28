@@ -1,14 +1,18 @@
-import { StyleSheet, View, Text, ScrollView, TouchableOpacity, Alert } from 'react-native';
+import { StyleSheet, View, Text, ScrollView, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
 import { SymbolView } from 'expo-symbols';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'expo-router';
 
 import Colors from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
 import { Button, Card } from '@/src/components/common';
+import { useAuth } from '@/src/contexts/AuthContext';
+import { itemsApi } from '@/src/services/api/itemsApi';
+import { salesApi } from '@/src/services/api/salesApi';
 
 interface CartItem {
   id: string;
+  itemId: string;
   name: string;
   price: number;
   quantity: number;
@@ -18,12 +22,11 @@ export default function SalesScreen() {
   const router = useRouter();
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme];
+  const { currentShop } = useAuth();
   
-  const [cartItems, setCartItems] = useState<CartItem[]>([
-    { id: '1', name: 'Wireless Mouse', price: 25.00, quantity: 2 },
-    { id: '2', name: 'USB-C Cable', price: 15.00, quantity: 1 },
-    { id: '3', name: 'Keyboard', price: 45.00, quantity: 1 },
-  ]);
+  const [cartItems, setCartItems] = useState<CartItem[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isCheckingOut, setIsCheckingOut] = useState(false);
 
   const updateQuantity = (id: string, delta: number) => {
     setCartItems(items =>
@@ -45,27 +48,56 @@ export default function SalesScreen() {
   const tax = subtotal * 0.08;
   const total = subtotal + tax;
 
-  const handleCheckout = () => {
+  const handleCheckout = async () => {
+    if (!currentShop) {
+      Alert.alert('Error', 'No shop selected');
+      return;
+    }
+
     if (cartItems.length === 0) {
       Alert.alert('Cart Empty', 'Please add items to your cart before checkout.');
       return;
     }
-    Alert.alert(
-      'Confirm Checkout',
-      `Total: $${total.toFixed(2)}\n\nProceed with payment?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Checkout',
-          style: 'default',
-          onPress: () => {
-            Alert.alert('Success', 'Payment processed successfully!');
-            setCartItems([]);
+
+    setIsCheckingOut(true);
+    try {
+      const saleData = {
+        shopId: currentShop.id,
+        paymentMethod: 'CASH' as const,
+        items: cartItems.map(item => ({
+          itemId: item.itemId,
+          unitPrice: item.price,
+        })),
+      };
+
+      const result = await salesApi.createSale(saleData);
+      Alert.alert(
+        'Success',
+        `Sale completed successfully!\nSale #${result.sale.saleNumber || 'N/A'}`,
+        [
+          {
+            text: 'OK',
+            onPress: () => {
+              setCartItems([]);
+              router.push('/sales');
+            },
           },
-        },
-      ]
-    );
+        ]
+      );
+    } catch (error) {
+      Alert.alert('Checkout Failed', error instanceof Error ? error.message : 'An error occurred');
+    } finally {
+      setIsCheckingOut(false);
+    }
   };
+
+  // Handle scanned item from scanner
+  useEffect(() => {
+    const subscription = (router as any).addListener?.('focus', () => {
+      // Could refresh cart or handle scanner results here
+    });
+    return () => subscription?.();
+  }, [router]);
 
   const handleScan = () => {
     router.push('/scanner');
@@ -76,13 +108,22 @@ export default function SalesScreen() {
       {/* Header */}
       <View style={[styles.header, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
         <Text style={[styles.headerTitle, { color: colors.text }]}>Sales</Text>
-        <Button
-          title="Scan"
-          onPress={handleScan}
-          variant="accent"
-          icon={{ ios: 'barcode', android: 'qr_code_scanner', web: 'qr_code_scanner' }}
-          style={styles.headerButton}
-        />
+        <View style={styles.headerButtons}>
+          <Button
+            title="History"
+            onPress={() => router.push('/sales')}
+            variant="outline"
+            icon={{ ios: 'clock', android: 'history', web: 'history' }}
+            style={styles.headerButton}
+          />
+          <Button
+            title="Scan"
+            onPress={handleScan}
+            variant="accent"
+            icon={{ ios: 'barcode', android: 'qr_code_scanner', web: 'qr_code_scanner' }}
+            style={styles.headerButton}
+          />
+        </View>
       </View>
 
       {cartItems.length === 0 ? (
@@ -166,8 +207,9 @@ export default function SalesScreen() {
               <Text style={[styles.totalValue, { color: colors.primary }]}>${total.toFixed(2)}</Text>
             </View>
             <Button
-              title="Checkout"
+              title={isCheckingOut ? 'Processing...' : 'Checkout'}
               onPress={handleCheckout}
+              disabled={isCheckingOut}
             />
           </View>
         </>
@@ -192,6 +234,10 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: '700',
     letterSpacing: -0.5,
+  },
+  headerButtons: {
+    flexDirection: 'row',
+    gap: 8,
   },
   headerButton: {
     paddingHorizontal: 12,

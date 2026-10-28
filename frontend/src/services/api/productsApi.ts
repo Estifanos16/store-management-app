@@ -17,14 +17,15 @@ async function getAuthHeaders(): Promise<HeadersInit> {
 }
 
 export const productsApi = {
-  async getProducts(params?: { search?: string; category?: string }): Promise<Product[]> {
+  async getProducts(params?: { shopId?: string; search?: string; category?: string }): Promise<Product[]> {
     const headers = await getAuthHeaders();
     
     const queryParams = new URLSearchParams();
+    if (params?.shopId) queryParams.append('shopId', params.shopId);
     if (params?.search) queryParams.append('search', params.search);
     if (params?.category) queryParams.append('category', params.category);
     
-    const url = `${API_BASE_URL}/products${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
+    const url = `${API_BASE_URL}/api/products${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
     
     const response = await fetch(url, {
       method: 'GET',
@@ -36,13 +37,14 @@ export const productsApi = {
       throw new Error(error.message || 'Failed to fetch products');
     }
 
-    return await response.json();
+    const data = await response.json();
+    return data.products || [];
   },
 
   async getProductById(id: string): Promise<Product> {
     const headers = await getAuthHeaders();
     
-    const response = await fetch(`${API_BASE_URL}/products/${id}`, {
+    const response = await fetch(`${API_BASE_URL}/api/products/${id}`, {
       method: 'GET',
       headers,
     });
@@ -58,15 +60,28 @@ export const productsApi = {
   async createProduct(data: CreateProductData): Promise<Product> {
     const headers = await getAuthHeaders();
     
-    const response = await fetch(`${API_BASE_URL}/products`, {
+    console.log('Creating product at:', `${API_BASE_URL}/api/products`);
+    console.log('Request data:', data);
+    console.log('Headers:', headers);
+    
+    const response = await fetch(`${API_BASE_URL}/api/products`, {
       method: 'POST',
       headers,
       body: JSON.stringify(data),
     });
 
+    console.log('Response status:', response.status);
+    console.log('Response ok:', response.ok);
+
     if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.message || 'Failed to create product');
+      const errorText = await response.text();
+      console.error('Error response:', errorText);
+      try {
+        const error = JSON.parse(errorText);
+        throw new Error(error.message || error.error || 'Failed to create product');
+      } catch {
+        throw new Error(errorText || 'Failed to create product');
+      }
     }
 
     return await response.json();
@@ -75,7 +90,7 @@ export const productsApi = {
   async updateProduct(id: string, data: UpdateProductData): Promise<Product> {
     const headers = await getAuthHeaders();
     
-    const response = await fetch(`${API_BASE_URL}/products/${id}`, {
+    const response = await fetch(`${API_BASE_URL}/api/products/${id}`, {
       method: 'PATCH',
       headers,
       body: JSON.stringify(data),

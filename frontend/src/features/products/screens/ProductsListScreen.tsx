@@ -17,18 +17,21 @@ import { useMockProducts } from '../mockData';
 import Colors from '../../../../constants/Colors';
 import { useColorScheme } from '../../../../components/useColorScheme';
 import { User } from '../../../types/auth';
+import { useAuth } from '../../../contexts/AuthContext';
 
 interface ProductsListScreenProps {
   user: User | null;
 }
 
 export default function ProductsListScreen({ user }: ProductsListScreenProps) {
+  const { currentShop } = useAuth();
   const [products, setProducts] = useState<Product[]>([]);
   const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [useMock, setUseMock] = useState(true);
+  const [useMock, setUseMock] = useState(false);
+  const [forceReal, setForceReal] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const router = useRouter();
@@ -41,7 +44,7 @@ export default function ProductsListScreen({ user }: ProductsListScreenProps) {
 
   useEffect(() => {
     loadProducts();
-  }, [useMock]);
+  }, [useMock, currentShop]);
 
   useEffect(() => {
     filterProducts();
@@ -72,23 +75,48 @@ export default function ProductsListScreen({ user }: ProductsListScreenProps) {
   const loadProducts = async () => {
     try {
       setError(null);
-      const mockData = useMockProducts(useMock);
       
-      if (mockData) {
-        setProducts(mockData.data);
+      console.log('loadProducts called - currentShop:', currentShop, 'useMock:', useMock);
+      
+      // Use mock data if explicitly requested
+      if (useMock) {
+        console.log('Using mock data (user selected)');
+        const mockData = useMockProducts(true);
+        if (mockData) {
+          setProducts(mockData.data);
+        }
         setIsLoading(false);
         return;
       }
+      
+      // Try real API when shop is available
+      if (currentShop) {
+        console.log('Loading products from API for shop:', currentShop.id);
+        try {
+          const data = await productsApi.getProducts({ shopId: currentShop.id });
+          console.log('Products loaded from API:', data);
+          setProducts(data);
+          setIsLoading(false);
+          return;
+        } catch (apiError) {
+          console.error('API call failed:', apiError);
+          throw apiError;
+        }
+      }
 
-      const data = await productsApi.getProducts();
-      setProducts(data);
+      // Fallback to mock data if no shop
+      console.log('No shop selected, using mock data');
+      const mockData = useMockProducts(true);
+      if (mockData) {
+        setProducts(mockData.data);
+      }
     } catch (err) {
+      console.error('Failed to load products:', err);
       setError(err instanceof Error ? err.message : 'Failed to load products');
       // Fallback to mock data on error
       const mockData = useMockProducts(true);
       if (mockData) {
         setProducts(mockData.data);
-        setUseMock(true);
       }
     } finally {
       setIsLoading(false);
@@ -113,15 +141,12 @@ export default function ProductsListScreen({ user }: ProductsListScreenProps) {
         </Text>
         <View style={styles.productDetails}>
           <Text style={[styles.productPrice, { color: Colors[colorScheme].primary }]}>
-            ETB {item.price.toFixed(2)}
-          </Text>
-          <Text style={[styles.productStock, { color: Colors[colorScheme].text, opacity: 0.7 }]}>
-            Stock: {item.stock}
+            ETB {item.defaultSellingPrice}
           </Text>
         </View>
       </View>
-      <View style={[styles.statusBadge, { backgroundColor: item.active ? Colors[colorScheme].success : Colors[colorScheme].neutral }]}>
-        <Text style={styles.statusText}>{item.active ? 'Active' : 'Inactive'}</Text>
+      <View style={[styles.statusBadge, { backgroundColor: !item.archived ? Colors[colorScheme].success : Colors[colorScheme].neutral }]}>
+        <Text style={styles.statusText}>{!item.archived ? 'Active' : 'Archived'}</Text>
       </View>
     </TouchableOpacity>
   );
@@ -153,6 +178,30 @@ export default function ProductsListScreen({ user }: ProductsListScreenProps) {
     addButtonText: {
       color: '#fff',
       fontWeight: '600',
+    },
+    headerButtons: {
+      flexDirection: 'row',
+      gap: 8,
+      alignItems: 'center',
+    },
+    modeButton: {
+      paddingHorizontal: 12,
+      paddingVertical: 6,
+      borderRadius: 6,
+      borderWidth: 1,
+      borderColor: Colors[colorScheme].border,
+    },
+    modeButtonActive: {
+      backgroundColor: Colors[colorScheme].warning,
+      borderColor: Colors[colorScheme].warning,
+    },
+    modeButtonText: {
+      fontSize: 12,
+      fontWeight: '600',
+      color: Colors[colorScheme].text,
+    },
+    modeButtonTextActive: {
+      color: '#fff',
     },
     searchContainer: {
       padding: 16,
@@ -312,14 +361,24 @@ export default function ProductsListScreen({ user }: ProductsListScreenProps) {
       )}
       <View style={styles.header}>
         <Text style={styles.title}>Products</Text>
-        {canAddProduct && (
+        <View style={styles.headerButtons}>
           <TouchableOpacity
-            style={styles.addButton}
-            onPress={() => router.push('/products/new')}
+            style={[styles.modeButton, useMock && styles.modeButtonActive]}
+            onPress={() => setUseMock(!useMock)}
           >
-            <Text style={styles.addButtonText}>+ Add</Text>
+            <Text style={[styles.modeButtonText, useMock && styles.modeButtonTextActive]}>
+              {useMock ? 'Mock' : 'API'}
+            </Text>
           </TouchableOpacity>
-        )}
+          {canAddProduct && (
+            <TouchableOpacity
+              style={styles.addButton}
+              onPress={() => router.push('/products/new')}
+            >
+              <Text style={styles.addButtonText}>+ Add</Text>
+            </TouchableOpacity>
+          )}
+        </View>
       </View>
 
       <View style={styles.searchContainer}>
