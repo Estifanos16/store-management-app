@@ -1,6 +1,7 @@
 import { StyleSheet, View, Text, ScrollView, TouchableOpacity, Alert } from 'react-native';
 import { SymbolView } from 'expo-symbols';
 import { useState } from 'react';
+import { useRouter } from 'expo-router';
 
 import Colors from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
@@ -14,6 +15,7 @@ interface CartItem {
 }
 
 export default function SalesScreen() {
+  const router = useRouter();
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme];
   
@@ -66,7 +68,7 @@ export default function SalesScreen() {
   };
 
   const handleScan = () => {
-    Alert.alert('Scan Barcode', 'Camera scanner would open here to scan product barcodes.');
+    router.push('/scanner');
   };
 
   return (

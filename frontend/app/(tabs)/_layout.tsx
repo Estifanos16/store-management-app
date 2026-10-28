@@ -130,6 +130,24 @@ export default function TabLayout() {
           }}
         />
       )}
+      <Tabs.Screen
+        name="print-test"
+        options={{
+          title: 'Print',
+          headerRight: () => <HeaderGearButton />,
+          tabBarIcon: ({ color }) => (
+            <SymbolView
+              name={{
+                ios: 'printer',
+                android: 'print',
+                web: 'print',
+              }}
+              tintColor={color}
+              size={28}
+            />
+          ),
+        }}
+      />
     </Tabs>
   );
 }
