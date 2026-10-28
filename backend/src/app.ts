@@ -12,6 +12,7 @@ import reportsRoutes from './modules/reports/reports.routes.js';
 import syncRoutes from './modules/sync/sync.routes.js';
 import { env } from './config/env.js';
 import prisma from './lib/prisma.js';
+import { registerSwagger } from './config/swagger.js';
 
 type AuthUser = {
   id: string;
@@ -127,7 +128,26 @@ export async function buildServer() {
     }
   });
 
-  app.get('/health', async () => ({ ok: true, status: 'healthy', environment: env.NODE_ENV }));
+  await registerSwagger(app);
+
+  app.get('/health', {
+    schema: {
+      tags: ['Health'],
+      summary: 'Health check',
+      description: 'Returns backend status for deployment and monitoring checks.',
+      security: [],
+      response: {
+        200: {
+          type: 'object',
+          properties: {
+            ok: { type: 'boolean' },
+            status: { type: 'string' },
+            environment: { type: 'string' },
+          },
+        },
+      },
+    },
+  }, async () => ({ ok: true, status: 'healthy', environment: env.NODE_ENV }));
 
   await app.register(authRoutes, { prefix: '/api/auth' });
   await app.register(shopsRoutes, { prefix: '/api' });

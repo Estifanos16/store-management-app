@@ -2,7 +2,22 @@ import { FastifyPluginAsync } from 'fastify';
 import prisma from '../../lib/prisma.js';
 
 const reportsRoutes: FastifyPluginAsync = async (fastify) => {
-  fastify.get('/reports/dashboard', async (request, reply) => {
+  fastify.get('/reports/dashboard', {
+    schema: {
+      tags: ['Reports'],
+      summary: 'Dashboard summary',
+      description: 'Returns summary inventory and financial metrics for the selected shop.',
+      querystring: {
+        type: 'object',
+        required: ['shopId'],
+        properties: { shopId: { type: 'string' } },
+      },
+      response: {
+        200: { type: 'object', properties: { shopId: { type: 'string' }, inventory: { type: 'object' }, financials: { type: 'object' } } },
+        400: { type: 'object', properties: { error: { type: 'string' }, message: { type: 'string' } } },
+      },
+    },
+  }, async (request, reply) => {
     const shopId = (request.query as any)?.shopId as string | undefined;
     if (!shopId) {
       reply.code(400).send({ error: 'Bad Request', message: 'shopId is required.' });
@@ -41,7 +56,22 @@ const reportsRoutes: FastifyPluginAsync = async (fastify) => {
     });
   });
 
-  fastify.get('/reports/profit', async (request, reply) => {
+  fastify.get('/reports/profit', {
+    schema: {
+      tags: ['Reports'],
+      summary: 'Profit report',
+      description: 'Calculates revenue, cost of goods sold, gross profit, and net profit for a shop.',
+      querystring: {
+        type: 'object',
+        required: ['shopId'],
+        properties: { shopId: { type: 'string' } },
+      },
+      response: {
+        200: { type: 'object', properties: { shopId: { type: 'string' }, totalRevenue: { type: 'number' }, costOfGoodsSold: { type: 'number' }, grossProfit: { type: 'number' }, expenses: { type: 'number' }, netProfit: { type: 'number' } } },
+        400: { type: 'object', properties: { error: { type: 'string' }, message: { type: 'string' } } },
+      },
+    },
+  }, async (request, reply) => {
     const shopId = (request.query as any)?.shopId as string | undefined;
     if (!shopId) {
       reply.code(400).send({ error: 'Bad Request', message: 'shopId is required.' });

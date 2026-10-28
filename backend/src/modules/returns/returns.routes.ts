@@ -9,7 +9,28 @@ const returnSchema = z.object({
 });
 
 const returnsRoutes: FastifyPluginAsync = async (fastify) => {
-  fastify.post('/returns', async (request, reply) => {
+  fastify.post('/returns', {
+    schema: {
+      tags: ['Returns'],
+      summary: 'Register a return',
+      description: 'Marks a sold item as returned and stores the return reason in the shop context.',
+      body: {
+        type: 'object',
+        required: ['shopId', 'itemId', 'reason'],
+        properties: {
+          shopId: { type: 'string' },
+          itemId: { type: 'string' },
+          reason: { type: 'string', minLength: 3 },
+        },
+      },
+      response: {
+        201: { type: 'object', properties: { returnRecord: { type: 'object' } } },
+        401: { type: 'object', properties: { error: { type: 'string' }, message: { type: 'string' } } },
+        404: { type: 'object', properties: { error: { type: 'string' }, message: { type: 'string' } } },
+        400: { type: 'object', properties: { error: { type: 'string' }, message: { type: 'string' } } },
+      },
+    },
+  }, async (request, reply) => {
     const payload = returnSchema.parse(request.body);
     await fastify.requireShopAccess(payload.shopId)(request, reply);
     const requestUser = (request as any).user as any;
@@ -65,7 +86,22 @@ const returnsRoutes: FastifyPluginAsync = async (fastify) => {
     reply.code(201).send({ returnRecord: record });
   });
 
-  fastify.get('/returns', async (request, reply) => {
+  fastify.get('/returns', {
+    schema: {
+      tags: ['Returns'],
+      summary: 'List return records',
+      description: 'Returns recorded item returns for the selected shop.',
+      querystring: {
+        type: 'object',
+        required: ['shopId'],
+        properties: { shopId: { type: 'string' } },
+      },
+      response: {
+        200: { type: 'object', properties: { returns: { type: 'array' } } },
+        400: { type: 'object', properties: { error: { type: 'string' }, message: { type: 'string' } } },
+      },
+    },
+  }, async (request, reply) => {
     const shopId = (request.query as any)?.shopId as string | undefined;
     if (!shopId) {
       reply.code(400).send({ error: 'Bad Request', message: 'shopId is required.' });

@@ -24,7 +24,25 @@ const itemStatusSchema = z.object({
 });
 
 const itemsRoutes: FastifyPluginAsync = async (fastify) => {
-  fastify.get('/items', async (request, reply) => {
+  fastify.get('/items', {
+    schema: {
+      tags: ['Items'],
+      summary: 'List items in shop',
+      description: 'Returns all items in a shop, optionally filtered by lifecycle status.',
+      querystring: {
+        type: 'object',
+        required: ['shopId'],
+        properties: {
+          shopId: { type: 'string' },
+          status: { type: 'string', enum: ['IN_STOCK', 'SOLD', 'RETURNED', 'DAMAGED'] },
+        },
+      },
+      response: {
+        200: { type: 'object', properties: { items: { type: 'array' } } },
+        400: { type: 'object', properties: { error: { type: 'string' }, message: { type: 'string' } } },
+      },
+    },
+  }, async (request, reply) => {
     const shopId = getShopId(request);
     if (!shopId) {
       reply.code(400).send({ error: 'Bad Request', message: 'shopId is required.' });
@@ -48,7 +66,30 @@ const itemsRoutes: FastifyPluginAsync = async (fastify) => {
     reply.send({ items });
   });
 
-  fastify.post('/items', async (request, reply) => {
+  fastify.post('/items', {
+    schema: {
+      tags: ['Items'],
+      summary: 'Register physical items',
+      description: 'Registers one or more physical items for an existing product in the authorized shop.',
+      body: {
+        type: 'object',
+        required: ['shopId', 'productId', 'quantity', 'costPrice'],
+        properties: {
+          shopId: { type: 'string' },
+          productId: { type: 'string' },
+          quantity: { type: 'integer', minimum: 1, maximum: 1000 },
+          costPrice: { type: 'number' },
+          sellingPrice: { type: 'number' },
+          createdByUserId: { type: 'string' },
+        },
+      },
+      response: {
+        201: { type: 'object', properties: { items: { type: 'array' }, count: { type: 'integer' } } },
+        401: { type: 'object', properties: { error: { type: 'string' }, message: { type: 'string' } } },
+        404: { type: 'object', properties: { error: { type: 'string' }, message: { type: 'string' } } },
+      },
+    },
+  }, async (request, reply) => {
     const payload = itemCreateSchema.parse(request.body);
     await fastify.requireShopAccess(payload.shopId)(request, reply);
     const requestUser = (request as any).user as any;
@@ -92,7 +133,28 @@ const itemsRoutes: FastifyPluginAsync = async (fastify) => {
     reply.code(201).send({ items: created, count: created.length });
   });
 
-  fastify.get('/items/:itemId', async (request, reply) => {
+  fastify.get('/items/:itemId', {
+    schema: {
+      tags: ['Items'],
+      summary: 'Get item details',
+      description: 'Returns item details and product context for a shop-scoped item.',
+      params: {
+        type: 'object',
+        required: ['itemId'],
+        properties: { itemId: { type: 'string' } },
+      },
+      querystring: {
+        type: 'object',
+        required: ['shopId'],
+        properties: { shopId: { type: 'string' } },
+      },
+      response: {
+        200: { type: 'object', properties: { item: { type: 'object' } } },
+        400: { type: 'object', properties: { error: { type: 'string' }, message: { type: 'string' } } },
+        404: { type: 'object', properties: { error: { type: 'string' }, message: { type: 'string' } } },
+      },
+    },
+  }, async (request, reply) => {
     const { itemId } = request.params as { itemId: string };
     const shopId = getShopId(request);
     if (!shopId) {
@@ -117,7 +179,32 @@ const itemsRoutes: FastifyPluginAsync = async (fastify) => {
     reply.send({ item });
   });
 
-  fastify.patch('/items/:itemId/status', async (request, reply) => {
+  fastify.patch('/items/:itemId/status', {
+    schema: {
+      tags: ['Items'],
+      summary: 'Update item lifecycle status',
+      description: 'Moves an item between lifecycle statuses such as IN_STOCK, SOLD, RETURNED, and DAMAGED.',
+      params: {
+        type: 'object',
+        required: ['itemId'],
+        properties: { itemId: { type: 'string' } },
+      },
+      body: {
+        type: 'object',
+        required: ['shopId', 'status'],
+        properties: {
+          shopId: { type: 'string' },
+          status: { type: 'string', enum: ['IN_STOCK', 'SOLD', 'RETURNED', 'DAMAGED'] },
+          reason: { type: 'string' },
+        },
+      },
+      response: {
+        200: { type: 'object', properties: { item: { type: 'object' } } },
+        401: { type: 'object', properties: { error: { type: 'string' }, message: { type: 'string' } } },
+        404: { type: 'object', properties: { error: { type: 'string' }, message: { type: 'string' } } },
+      },
+    },
+  }, async (request, reply) => {
     const { itemId } = request.params as { itemId: string };
     const payload = itemStatusSchema.parse(request.body);
     await fastify.requireShopAccess(payload.shopId)(request, reply);

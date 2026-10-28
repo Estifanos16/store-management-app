@@ -20,7 +20,24 @@ const productsRoutes: FastifyPluginAsync = async (fastify) => {
     return typeof shopId === 'string' ? shopId : undefined;
   };
 
-  fastify.get('/products', async (request, reply) => {
+  fastify.get('/products', {
+    schema: {
+      tags: ['Products'],
+      summary: 'List shop products',
+      description: 'Returns active products in the selected shop.',
+      querystring: {
+        type: 'object',
+        required: ['shopId'],
+        properties: {
+          shopId: { type: 'string' },
+        },
+      },
+      response: {
+        200: { type: 'object', properties: { products: { type: 'array' } } },
+        400: { type: 'object', properties: { error: { type: 'string' }, message: { type: 'string' } } },
+      },
+    },
+  }, async (request, reply) => {
     const shopId = getShopIdFromQuery(request);
     if (!shopId) {
       reply.code(400).send({ error: 'Bad Request', message: 'shopId is required.' });
@@ -37,7 +54,30 @@ const productsRoutes: FastifyPluginAsync = async (fastify) => {
     reply.send({ products });
   });
 
-  fastify.post('/products', async (request, reply) => {
+  fastify.post('/products', {
+    schema: {
+      tags: ['Products'],
+      summary: 'Create product',
+      description: 'Creates a catalog product in the authorized shop.',
+      body: {
+        type: 'object',
+        required: ['shopId', 'name', 'defaultSellingPrice'],
+        properties: {
+          shopId: { type: 'string' },
+          categoryId: { type: 'string' },
+          name: { type: 'string', minLength: 2 },
+          description: { type: 'string' },
+          brand: { type: 'string' },
+          defaultSellingPrice: { type: 'number' },
+          active: { type: 'boolean' },
+        },
+      },
+      response: {
+        201: { type: 'object', properties: { product: { type: 'object' } } },
+        400: { type: 'object', properties: { error: { type: 'string' }, message: { type: 'string' } } },
+      },
+    },
+  }, async (request, reply) => {
     const payload = productBody.parse(request.body);
     await fastify.requireShopAccess(payload.shopId)(request, reply);
     const product = await prisma.product.create({
@@ -55,7 +95,28 @@ const productsRoutes: FastifyPluginAsync = async (fastify) => {
     reply.code(201).send({ product });
   });
 
-  fastify.get('/products/:productId', async (request, reply) => {
+  fastify.get('/products/:productId', {
+    schema: {
+      tags: ['Products'],
+      summary: 'Get a single product',
+      description: 'Returns one product from the selected shop.',
+      params: {
+        type: 'object',
+        required: ['productId'],
+        properties: { productId: { type: 'string' } },
+      },
+      querystring: {
+        type: 'object',
+        required: ['shopId'],
+        properties: { shopId: { type: 'string' } },
+      },
+      response: {
+        200: { type: 'object', properties: { product: { type: 'object' } } },
+        400: { type: 'object', properties: { error: { type: 'string' }, message: { type: 'string' } } },
+        404: { type: 'object', properties: { error: { type: 'string' }, message: { type: 'string' } } },
+      },
+    },
+  }, async (request, reply) => {
     const { productId } = request.params as { productId: string };
     const shopId = getShopIdFromQuery(request);
     if (!shopId) {
@@ -77,7 +138,35 @@ const productsRoutes: FastifyPluginAsync = async (fastify) => {
     reply.send({ product });
   });
 
-  fastify.patch('/products/:productId', async (request, reply) => {
+  fastify.patch('/products/:productId', {
+    schema: {
+      tags: ['Products'],
+      summary: 'Update product',
+      description: 'Updates product fields in the shop scope.',
+      params: {
+        type: 'object',
+        required: ['productId'],
+        properties: { productId: { type: 'string' } },
+      },
+      body: {
+        type: 'object',
+        properties: {
+          shopId: { type: 'string' },
+          categoryId: { type: 'string' },
+          name: { type: 'string' },
+          description: { type: 'string' },
+          brand: { type: 'string' },
+          defaultSellingPrice: { type: 'number' },
+          active: { type: 'boolean' },
+        },
+      },
+      response: {
+        200: { type: 'object', properties: { product: { type: 'object' } } },
+        400: { type: 'object', properties: { error: { type: 'string' }, message: { type: 'string' } } },
+        404: { type: 'object', properties: { error: { type: 'string' }, message: { type: 'string' } } },
+      },
+    },
+  }, async (request, reply) => {
     const { productId } = request.params as { productId: string };
     const payload = productPatch.parse(request.body);
     const shopId = payload.shopId ?? getShopIdFromQuery(request);

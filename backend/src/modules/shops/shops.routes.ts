@@ -5,7 +5,17 @@ import prisma from '../../lib/prisma.js';
 const shopIdParam = z.object({ shopId: z.string().min(1) });
 
 const shopsRoutes: FastifyPluginAsync = async (fastify) => {
-  fastify.get('/shops', async (request, reply) => {
+  fastify.get('/shops', {
+    schema: {
+      tags: ['Shops'],
+      summary: 'List shops for current user',
+      description: 'Returns all active shops the current authenticated user belongs to.',
+      response: {
+        200: { type: 'object', properties: { shops: { type: 'array' } } },
+        401: { type: 'object', properties: { error: { type: 'string' }, message: { type: 'string' } } },
+      },
+    },
+  }, async (request, reply) => {
     await fastify.requireAuth(request, reply);
     const requestUser = (request as any).user as any;
     if (!requestUser) {
@@ -26,7 +36,25 @@ const shopsRoutes: FastifyPluginAsync = async (fastify) => {
     })) });
   });
 
-  fastify.get('/shops/:shopId', async (request, reply) => {
+  fastify.get('/shops/:shopId', {
+    schema: {
+      tags: ['Shops'],
+      summary: 'Get shop details',
+      description: 'Returns a shop record and current user membership role for the selected shop.',
+      params: {
+        type: 'object',
+        required: ['shopId'],
+        properties: {
+          shopId: { type: 'string' },
+        },
+      },
+      response: {
+        200: { type: 'object', properties: { id: { type: 'string' }, name: { type: 'string' }, currency: { type: 'string' }, currentRole: { type: 'string' } } },
+        401: { type: 'object', properties: { error: { type: 'string' }, message: { type: 'string' } } },
+        404: { type: 'object', properties: { error: { type: 'string' }, message: { type: 'string' } } },
+      },
+    },
+  }, async (request, reply) => {
     const params = shopIdParam.parse(request.params);
     await fastify.requireShopAccess(params.shopId)(request, reply);
     const requestUser = (request as any).user as any;

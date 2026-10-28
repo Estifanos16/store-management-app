@@ -11,7 +11,22 @@ const expenseSchema = z.object({
 });
 
 const expensesRoutes: FastifyPluginAsync = async (fastify) => {
-  fastify.get('/expenses', async (request, reply) => {
+  fastify.get('/expenses', {
+    schema: {
+      tags: ['Expenses'],
+      summary: 'List expenses',
+      description: 'Returns expense records for the selected shop.',
+      querystring: {
+        type: 'object',
+        required: ['shopId'],
+        properties: { shopId: { type: 'string' } },
+      },
+      response: {
+        200: { type: 'object', properties: { expenses: { type: 'array' } } },
+        400: { type: 'object', properties: { error: { type: 'string' }, message: { type: 'string' } } },
+      },
+    },
+  }, async (request, reply) => {
     const shopId = (request.query as any)?.shopId as string | undefined;
     if (!shopId) {
       reply.code(400).send({ error: 'Bad Request', message: 'shopId is required.' });
@@ -27,7 +42,28 @@ const expensesRoutes: FastifyPluginAsync = async (fastify) => {
     reply.send({ expenses });
   });
 
-  fastify.post('/expenses', async (request, reply) => {
+  fastify.post('/expenses', {
+    schema: {
+      tags: ['Expenses'],
+      summary: 'Create an expense',
+      description: 'Records a cost for the selected shop.',
+      body: {
+        type: 'object',
+        required: ['shopId', 'category', 'description', 'amount'],
+        properties: {
+          shopId: { type: 'string' },
+          category: { type: 'string' },
+          description: { type: 'string' },
+          amount: { type: 'number' },
+          expenseDate: { type: 'string', format: 'date-time' },
+        },
+      },
+      response: {
+        201: { type: 'object', properties: { expense: { type: 'object' } } },
+        400: { type: 'object', properties: { error: { type: 'string' }, message: { type: 'string' } } },
+      },
+    },
+  }, async (request, reply) => {
     const payload = expenseSchema.parse(request.body);
     await fastify.requireShopAccess(payload.shopId)(request, reply);
 
