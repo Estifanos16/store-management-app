@@ -251,6 +251,53 @@ const itemsRoutes: FastifyPluginAsync = async (fastify) => {
 
     reply.send({ item: updated });
   });
+
+  fastify.get('/items/by-qr-code', {
+    schema: {
+      tags: ['Items'],
+      summary: 'Lookup item by QR code',
+      description: 'Finds an item by its unique QR code within a shop.',
+      querystring: {
+        type: 'object',
+        required: ['qrCode', 'shopId'],
+        properties: {
+          qrCode: { type: 'string' },
+          shopId: { type: 'string' },
+        },
+      },
+      response: {
+        200: { type: 'object', properties: { item: { type: 'object' } } },
+        400: { type: 'object', properties: { error: { type: 'string' }, message: { type: 'string' } } },
+        404: { type: 'object', properties: { error: { type: 'string' }, message: { type: 'string' } } },
+      },
+    },
+  }, async (request, reply) => {
+    const { qrCode, shopId } = request.query as { qrCode: string; shopId: string };
+    if (!qrCode || !shopId) {
+      reply.code(400).send({ error: 'Bad Request', message: 'qrCode and shopId are required.' });
+      return;
+    }
+
+    await fastify.requireShopAccess(shopId)(request, reply);
+    
+    const item = await prisma.item.findFirst({
+      where: { 
+        uniqueQrCode: qrCode,
+        shopId,
+      },
+      include: {
+        product: true,
+        createdBy: true,
+      },
+    });
+
+    if (!item) {
+      reply.code(404).send({ error: 'Not Found', message: 'Item not found with this QR code.' });
+      return;
+    }
+
+    reply.send({ item });
+  });
 };
 
 export default itemsRoutes;

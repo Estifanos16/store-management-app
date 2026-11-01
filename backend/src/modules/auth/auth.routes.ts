@@ -36,13 +36,14 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
     })) ?? [],
   });
 
-  const createTokenPair = async (userId: string) => {
+  const createTokenPair = async (userId: string, tx?: any) => {
     const accessToken = fastify.jwt.sign({ sub: userId }, { expiresIn: '15m' });
     const refreshToken = crypto.randomBytes(32).toString('hex');
     const refreshTokenHash = await argon2.hash(refreshToken);
     const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
 
-    await prisma.refreshToken.create({
+    const prismaClient = tx || prisma;
+    await prismaClient.refreshToken.create({
       data: {
         userId,
         tokenHash: refreshTokenHash,
@@ -133,7 +134,7 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
         },
       });
 
-      const tokenPair = await createTokenPair(user.id);
+      const tokenPair = await createTokenPair(user.id, tx);
       return { user: serializeUser(user), ...tokenPair };
     });
 

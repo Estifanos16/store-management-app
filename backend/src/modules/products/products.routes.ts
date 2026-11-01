@@ -9,7 +9,7 @@ const productBody = z.object({
   description: z.string().optional(),
   brand: z.string().optional(),
   defaultSellingPrice: z.number().positive(),
-  active: z.boolean().optional(),
+  archived: z.boolean().optional(),
 });
 
 const productPatch = productBody.partial();
@@ -46,7 +46,7 @@ const productsRoutes: FastifyPluginAsync = async (fastify) => {
 
     await fastify.requireShopAccess(shopId)(request, reply);
     const products = await prisma.product.findMany({
-      where: { shopId, active: true },
+      where: { shopId, archived: false },
       include: { category: true },
       orderBy: { createdAt: 'desc' },
     });
@@ -69,7 +69,7 @@ const productsRoutes: FastifyPluginAsync = async (fastify) => {
           description: { type: 'string' },
           brand: { type: 'string' },
           defaultSellingPrice: { type: 'number' },
-          active: { type: 'boolean' },
+          archived: { type: 'boolean' },
         },
       },
       response: {
@@ -88,7 +88,7 @@ const productsRoutes: FastifyPluginAsync = async (fastify) => {
         description: payload.description,
         brand: payload.brand,
         defaultSellingPrice: payload.defaultSellingPrice,
-        active: payload.active ?? true,
+        archived: payload.archived ?? false,
       },
     });
 
@@ -157,7 +157,7 @@ const productsRoutes: FastifyPluginAsync = async (fastify) => {
           description: { type: 'string' },
           brand: { type: 'string' },
           defaultSellingPrice: { type: 'number' },
-          active: { type: 'boolean' },
+          archived: { type: 'boolean' },
         },
       },
       response: {
