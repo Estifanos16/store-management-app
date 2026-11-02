@@ -90,46 +90,7 @@ export default function TabLayout() {
           ),
         }}
       />
-      {isOwner && (
-        <Tabs.Screen
-          name="reports"
-          options={{
-            title: 'Reports',
-            headerRight: () => <HeaderGearButton />,
-            tabBarIcon: ({ color }) => (
-              <SymbolView
-                name={{
-                  ios: 'chart.line.uptrend.xyaxis',
-                  android: 'assessment',
-                  web: 'assessment',
-                }}
-                tintColor={color}
-                size={28}
-              />
-            ),
-          }}
-        />
-      )}
-      {isOwner && (
-        <Tabs.Screen
-          name="settings"
-          options={{
-            title: 'Settings',
-            headerRight: () => <HeaderGearButton />,
-            tabBarIcon: ({ color }) => (
-              <SymbolView
-                name={{
-                  ios: 'gearshape',
-                  android: 'settings',
-                  web: 'settings',
-                }}
-                tintColor={color}
-                size={28}
-              />
-            ),
-          }}
-        />
-      )}
+
       <Tabs.Screen
         name="print-test"
         options={{

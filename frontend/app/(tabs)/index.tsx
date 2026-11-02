@@ -126,7 +126,7 @@ export default function DashboardScreen() {
           
           <Button
             title="Quick Scan"
-            onPress={() => router.push('/(tabs)/two')}
+            onPress={() => router.push('/scanner/item')}
             variant="accent"
             icon={{ ios: 'barcode', android: 'qr_code_scanner', web: 'qr_code_scanner' }}
             style={styles.actionButton}
@@ -139,6 +139,48 @@ export default function DashboardScreen() {
             icon={{ ios: 'cube', android: 'inventory', web: 'inventory' }}
             style={styles.actionButton}
           />
+
+          <Button
+            title="Manage Items"
+            onPress={() => router.push('/items')}
+            variant="outline"
+            icon={{ ios: 'list.bullet', android: 'list', web: 'list' }}
+            style={styles.actionButton}
+          />
+
+          <Button
+            title="Sales History"
+            onPress={() => router.push('/sales')}
+            variant="outline"
+            icon={{ ios: 'clock', android: 'history', web: 'history' }}
+            style={styles.actionButton}
+          />
+
+          <Button
+            title="Add Expense"
+            onPress={() => router.push('/expenses')}
+            variant="outline"
+            icon={{ ios: 'minus.circle', android: 'remove_circle', web: 'remove_circle' }}
+            style={styles.actionButton}
+          />
+
+          <Button
+            title="Register Return"
+            onPress={() => router.push('/returns')}
+            variant="outline"
+            icon={{ ios: 'arrow.counterclockwise', android: 'refresh', web: 'refresh' }}
+            style={styles.actionButton}
+          />
+
+          {isOwner && (
+            <Button
+              title="View Reports"
+              onPress={() => router.push('/reports')}
+              variant="outline"
+              icon={{ ios: 'chart.line.uptrend.xyaxis', android: 'assessment', web: 'assessment' }}
+              style={styles.actionButton}
+            />
+          )}
         </View>
 
         {/* Recent Activity */}

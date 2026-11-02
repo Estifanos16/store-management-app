@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import * as SecureStore from 'expo-secure-store';
+import { Platform } from 'react-native';
 import { User } from '../types/auth';
 import { authApi } from '../services/api/authApi';
 
@@ -28,6 +29,30 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 const SHOP_KEY = 'current_shop';
 const SHOPS_KEY = 'user_shops';
 
+// Helper for web-compatible storage
+const storage = {
+  getItem: async (key: string): Promise<string | null> => {
+    if (Platform.OS === 'web') {
+      return localStorage.getItem(key);
+    }
+    return await SecureStore.getItemAsync(key);
+  },
+  setItem: async (key: string, value: string): Promise<void> => {
+    if (Platform.OS === 'web') {
+      localStorage.setItem(key, value);
+    } else {
+      await SecureStore.setItemAsync(key, value);
+    }
+  },
+  deleteItem: async (key: string): Promise<void> => {
+    if (Platform.OS === 'web') {
+      localStorage.removeItem(key);
+    } else {
+      await SecureStore.deleteItemAsync(key);
+    }
+  },
+};
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -36,12 +61,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const setCurrentShop = async (shop: Shop) => {
     setCurrentShopState(shop);
-    await SecureStore.setItemAsync(SHOP_KEY, JSON.stringify(shop));
+    await storage.setItem(SHOP_KEY, JSON.stringify(shop));
   };
 
   const loadShops = async () => {
     try {
-      const shopsData = await SecureStore.getItemAsync(SHOPS_KEY);
+      const shopsData = await storage.getItem(SHOPS_KEY);
       if (shopsData) {
         setShops(JSON.parse(shopsData));
       }
@@ -52,7 +77,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const loadCurrentShop = async () => {
     try {
-      const shopData = await SecureStore.getItemAsync(SHOP_KEY);
+      const shopData = await storage.getItem(SHOP_KEY);
       if (shopData) {
         setCurrentShopState(JSON.parse(shopData));
       }
@@ -75,7 +100,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           role: m.role,
         }));
         setShops(userShops);
-        await SecureStore.setItemAsync(SHOPS_KEY, JSON.stringify(userShops));
+        await storage.setItem(SHOPS_KEY, JSON.stringify(userShops));
         
         // Auto-select first shop if no current shop
         if (!currentShop && userShops.length > 0) {
@@ -92,8 +117,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(null);
     setCurrentShopState(null);
     setShops([]);
-    await SecureStore.deleteItemAsync(SHOP_KEY);
-    await SecureStore.deleteItemAsync(SHOPS_KEY);
+    await storage.deleteItem(SHOP_KEY);
+    await storage.deleteItem(SHOPS_KEY);
   };
 
   useEffect(() => {

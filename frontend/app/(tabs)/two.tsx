@@ -9,6 +9,8 @@ import { Button, Card } from '@/src/components/common';
 import { useAuth } from '@/src/contexts/AuthContext';
 import { itemsApi } from '@/src/services/api/itemsApi';
 import { salesApi } from '@/src/services/api/salesApi';
+import { useNetworkStatus } from '@/src/hooks/useNetworkStatus';
+import { pendingSaleRepository, PendingSale, PendingSaleItem } from '@/src/database/repositories/PendingSaleRepository';
 
 interface CartItem {
   id: string;
@@ -23,10 +25,16 @@ export default function SalesScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme];
   const { currentShop } = useAuth();
+  const networkStatus = useNetworkStatus();
   
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isCheckingOut, setIsCheckingOut] = useState(false);
+  const [isOffline, setIsOffline] = useState(!networkStatus.isConnected || !networkStatus.isInternetReachable);
+
+  useEffect(() => {
+    setIsOffline(!networkStatus.isConnected || !networkStatus.isInternetReachable);
+  }, [networkStatus]);
 
   const updateQuantity = (id: string, delta: number) => {
     setCartItems(items =>
@@ -61,29 +69,72 @@ export default function SalesScreen() {
 
     setIsCheckingOut(true);
     try {
-      const saleData = {
-        shopId: currentShop.id,
-        paymentMethod: 'CASH' as const,
-        items: cartItems.map(item => ({
-          itemId: item.itemId,
-          unitPrice: item.price,
-        })),
-      };
-
-      const result = await salesApi.createSale(saleData);
-      Alert.alert(
-        'Success',
-        `Sale completed successfully!\nSale #${result.sale.saleNumber || 'N/A'}`,
-        [
-          {
-            text: 'OK',
-            onPress: () => {
-              setCartItems([]);
-              router.push('/sales');
+      if (isOffline) {
+        // Offline mode: Save to local database
+        const pendingSale: PendingSale = {
+          id: `pending-${Date.now()}`,
+          shopId: currentShop.id,
+          saleNumber: `PENDING-${Date.now()}`,
+          totalAmount: total.toString(),
+          totalCost: (subtotal * 0.7).toString(),
+          profit: tax.toString(),
+          paymentMethod: 'CASH',
+          status: 'PENDING',
+          createdAt: new Date().toISOString(),
+          items: cartItems.map(item => ({
+            id: `pending-item-${item.id}-${Date.now()}`,
+            pendingSaleId: `pending-${Date.now()}`,
+            itemId: item.itemId,
+            productId: item.itemId,
+            productName: item.name,
+            quantity: item.quantity,
+            unitPrice: item.price.toString(),
+            totalPrice: (item.price * item.quantity).toString(),
+            costPrice: (item.price * 0.7).toString(),
+          })),
+          syncStatus: 'PENDING',
+          retryCount: 0,
+        };
+        
+        await pendingSaleRepository.create(pendingSale);
+        Alert.alert(
+          'Offline Sale Saved',
+          'Sale recorded locally. It will sync when you come back online.',
+          [
+            {
+              text: 'OK',
+              onPress: () => {
+                setCartItems([]);
+              },
             },
-          },
-        ]
-      );
+          ]
+        );
+      } else {
+        // Online mode: Send to backend
+        const saleData = {
+          shopId: currentShop.id,
+          paymentMethod: 'CASH' as const,
+          items: cartItems.map(item => ({
+            itemId: item.itemId,
+            unitPrice: item.price,
+          })),
+        };
+
+        const result = await salesApi.createSale(saleData);
+        Alert.alert(
+          'Success',
+          `Sale completed successfully!\nSale #${result.sale.saleNumber || 'N/A'}`,
+          [
+            {
+              text: 'OK',
+              onPress: () => {
+                setCartItems([]);
+                router.push('/sales');
+              },
+            },
+          ]
+        );
+      }
     } catch (error) {
       Alert.alert('Checkout Failed', error instanceof Error ? error.message : 'An error occurred');
     } finally {
@@ -107,7 +158,14 @@ export default function SalesScreen() {
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       {/* Header */}
       <View style={[styles.header, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
-        <Text style={[styles.headerTitle, { color: colors.text }]}>Sales</Text>
+        <View style={styles.headerLeft}>
+          <Text style={[styles.headerTitle, { color: colors.text }]}>Sales</Text>
+          {isOffline && (
+            <View style={[styles.offlineBadge, { backgroundColor: colors.warning }]}>
+              <Text style={[styles.offlineBadgeText, { color: colors.warningText }]}>OFFLINE</Text>
+            </View>
+          )}
+        </View>
         <View style={styles.headerButtons}>
           <Button
             title="History"
@@ -234,6 +292,20 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: '700',
     letterSpacing: -0.5,
+  },
+  headerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  offlineBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  offlineBadgeText: {
+    fontSize: 11,
+    fontWeight: '600',
   },
   headerButtons: {
     flexDirection: 'row',

@@ -1,14 +1,27 @@
 import Constants from 'expo-constants';
 import * as SecureStore from 'expo-secure-store';
+import { Platform } from 'react-native';
+import { mockSales } from './mockSalesData';
 
 const API_BASE_URL = Constants.expoConfig?.extra?.EXPO_PUBLIC_API_BASE_URL || 
                      process.env.EXPO_PUBLIC_API_BASE_URL || 
                      'http://localhost:3000';
 
 const TOKEN_KEY = 'auth_token';
+const USE_MOCK_KEY = 'use_mock_auth';
+
+// Helper for web-compatible storage
+const storage = {
+  getItem: async (key: string): Promise<string | null> => {
+    if (Platform.OS === 'web') {
+      return localStorage.getItem(key);
+    }
+    return await SecureStore.getItemAsync(key);
+  },
+};
 
 async function getAuthHeaders(): Promise<HeadersInit> {
-  const token = await SecureStore.getItemAsync(TOKEN_KEY);
+  const token = await storage.getItem(TOKEN_KEY);
   return {
     'Authorization': `Bearer ${token}`,
     'Content-Type': 'application/json',
@@ -27,6 +40,11 @@ interface CreateSaleData {
   discount?: number;
   items: SaleItem[];
 }
+
+const shouldUseMock = async (): Promise<boolean> => {
+  const useMock = await storage.getItem(USE_MOCK_KEY);
+  return useMock === 'true';
+};
 
 export const salesApi = {
   async getSales(shopId: string): Promise<{ sales: any[] }> {

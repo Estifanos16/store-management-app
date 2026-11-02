@@ -1,4 +1,4 @@
-import { StyleSheet, View, Text, ScrollView } from 'react-native';
+import { StyleSheet, View, Text, ScrollView, Alert } from 'react-native';
 import { useState } from 'react';
 import { SymbolView } from 'expo-symbols';
 
@@ -6,6 +6,8 @@ import Colors from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
 import { Button, Card } from '@/src/components/common';
 import { PrintPreviewScreen, LabelData, ReceiptData } from '@/src/features/printer';
+import { labelPrinter } from '@/src/services/print/LabelPrinter';
+import { Item } from '@/src/database/repositories/ItemRepository';
 
 export default function PrintTestScreen() {
   const colorScheme = useColorScheme();
@@ -64,6 +66,26 @@ export default function PrintTestScreen() {
     },
   ];
 
+  const handlePrintLabels = async () => {
+    try {
+      const items: Item[] = sampleLabels.map(label => ({
+        id: label.id,
+        shopId: 'shop-1',
+        productId: 'prod-1',
+        publicIdentifier: label.serialNumber || 'N/A',
+        uniqueQrCode: label.qrCode,
+        status: 'IN_STOCK',
+        costPrice: (label.price * 0.7).toString(),
+        sellingPrice: label.price.toString(),
+        registeredAt: new Date().toISOString(),
+      }));
+      
+      await labelPrinter.printLabels(items);
+    } catch (error) {
+      Alert.alert('Print Failed', error instanceof Error ? error.message : 'Unknown error');
+    }
+  };
+
   // Sample receipt data
   const sampleReceipt: ReceiptData = {
     receiptNumber: 'RCP-2024-001234',
@@ -121,7 +143,7 @@ export default function PrintTestScreen() {
           </View>
           <Button
             title="Print Sample Labels"
-            onPress={() => setShowPreview('labels')}
+            onPress={handlePrintLabels}
             variant="accent"
             icon={{ ios: 'printer', android: 'print', web: 'print' }}
           />

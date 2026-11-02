@@ -1,13 +1,38 @@
 import Constants from 'expo-constants';
 import * as SecureStore from 'expo-secure-store';
+import { Platform } from 'react-native';
 import { User } from '../../types/auth';
 
-const API_BASE_URL = Constants.expoConfig?.extra?.EXPO_PUBLIC_API_BASE_URL || 
-                     process.env.EXPO_PUBLIC_API_BASE_URL || 
+const API_BASE_URL = Constants.expoConfig?.extra?.EXPO_PUBLIC_API_BASE_URL ||
+                     process.env.EXPO_PUBLIC_API_BASE_URL ||
                      'http://localhost:3000';
 
 const TOKEN_KEY = 'auth_token';
 const USE_MOCK_KEY = 'use_mock_auth';
+
+// Helper for web-compatible storage
+const storage = {
+  getItem: async (key: string): Promise<string | null> => {
+    if (Platform.OS === 'web') {
+      return localStorage.getItem(key);
+    }
+    return await SecureStore.getItemAsync(key);
+  },
+  setItem: async (key: string, value: string): Promise<void> => {
+    if (Platform.OS === 'web') {
+      localStorage.setItem(key, value);
+    } else {
+      await SecureStore.setItemAsync(key, value);
+    }
+  },
+  deleteItem: async (key: string): Promise<void> => {
+    if (Platform.OS === 'web') {
+      localStorage.removeItem(key);
+    } else {
+      await SecureStore.deleteItemAsync(key);
+    }
+  },
+};
 
 // Mock user data for development
 const MOCK_USERS: { [key: string]: User } = {
@@ -107,7 +132,7 @@ interface BackendUser {
 }
 
 const shouldUseMock = async (): Promise<boolean> => {
-  const useMock = await SecureStore.getItemAsync(USE_MOCK_KEY);
+  const useMock = await storage.getItem(USE_MOCK_KEY);
   return useMock === 'true';
 };
 
@@ -136,8 +161,8 @@ export const authApi = {
       if (mockUser && password === mockPassword) {
         const mockToken = `mock-token-${mockUser.id}-${Date.now()}`;
         const mockRefreshToken = `mock-refresh-${mockUser.id}-${Date.now()}`;
-        await SecureStore.setItemAsync(TOKEN_KEY, mockToken);
-        await SecureStore.setItemAsync('mock_user_id', mockUser.id);
+        await storage.setItem(TOKEN_KEY, mockToken);
+        await storage.setItem('mock_user_id', mockUser.id);
         return { user: mockUser, accessToken: mockToken, refreshToken: mockRefreshToken };
       }
     }
@@ -157,12 +182,12 @@ export const authApi = {
 
     const data = await response.json();
     const user = convertBackendUser(data.user);
-    await SecureStore.setItemAsync(TOKEN_KEY, data.accessToken);
+    await storage.setItem(TOKEN_KEY, data.accessToken);
     return { user, accessToken: data.accessToken, refreshToken: data.refreshToken };
   },
 
   async logout(): Promise<void> {
-    const token = await SecureStore.getItemAsync(TOKEN_KEY);
+    const token = await storage.getItem(TOKEN_KEY);
     if (token && !token.startsWith('mock-token-')) {
       try {
         await fetch(`${API_BASE_URL}/api/auth/logout`, {
@@ -176,12 +201,12 @@ export const authApi = {
         console.error('Logout API call failed:', error);
       }
     }
-    await SecureStore.deleteItemAsync(TOKEN_KEY);
-    await SecureStore.deleteItemAsync('mock_user_id');
+    await storage.deleteItem(TOKEN_KEY);
+    await storage.deleteItem('mock_user_id');
   },
 
   async getCurrentUser(): Promise<User> {
-    const token = await SecureStore.getItemAsync(TOKEN_KEY);
+    const token = await storage.getItem(TOKEN_KEY);
     
     if (!token) {
       throw new Error('No authentication token found');
@@ -191,7 +216,7 @@ export const authApi = {
 
     // Handle mock token
     if (token.startsWith('mock-token-')) {
-      const mockUserId = await SecureStore.getItemAsync('mock_user_id');
+      const mockUserId = await storage.getItem('mock_user_id');
       if (mockUserId) {
         const mockUser = Object.values(MOCK_USERS).find(u => u.id === mockUserId);
         if (mockUser) return mockUser;
@@ -222,10 +247,10 @@ export const authApi = {
   },
 
   async getToken(): Promise<string | null> {
-    return await SecureStore.getItemAsync(TOKEN_KEY);
+    return await storage.getItem(TOKEN_KEY);
   },
 
   async setUseMock(useMock: boolean): Promise<void> {
-    await SecureStore.setItemAsync(USE_MOCK_KEY, useMock ? 'true' : 'false');
+    await storage.setItem(USE_MOCK_KEY, useMock ? 'true' : 'false');
   },
 };

@@ -203,6 +203,17 @@ export default function ProductsListScreen({ user }: ProductsListScreenProps) {
     modeButtonTextActive: {
       color: '#fff',
     },
+    itemsButton: {
+      backgroundColor: Colors[colorScheme].accent,
+      paddingHorizontal: 12,
+      paddingVertical: 6,
+      borderRadius: 6,
+    },
+    itemsButtonText: {
+      fontSize: 12,
+      fontWeight: '600',
+      color: '#fff',
+    },
     searchContainer: {
       padding: 16,
       backgroundColor: Colors[colorScheme].background,
@@ -369,6 +380,12 @@ export default function ProductsListScreen({ user }: ProductsListScreenProps) {
             <Text style={[styles.modeButtonText, useMock && styles.modeButtonTextActive]}>
               {useMock ? 'Mock' : 'API'}
             </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.itemsButton}
+            onPress={() => router.push('/items')}
+          >
+            <Text style={styles.itemsButtonText}>Items</Text>
           </TouchableOpacity>
           {canAddProduct && (
             <TouchableOpacity

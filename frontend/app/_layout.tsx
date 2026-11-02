@@ -2,6 +2,7 @@ import { useFonts } from 'expo-font';
 import { DarkTheme, DefaultTheme, Stack, ThemeProvider, useRouter } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect, useState } from 'react';
+import { View, Text, Platform } from 'react-native';
 import 'react-native-reanimated';
 
 import { useColorScheme } from '@/components/useColorScheme';
@@ -9,6 +10,8 @@ import { authApi } from '../src/services/api/authApi';
 import { User } from '../src/types/auth';
 import { AuthProvider } from '../src/contexts/AuthContext';
 import { ThemeProvider as CustomThemeProvider } from '../src/contexts/ThemeContext';
+import { OfflineIndicator } from '../src/components/OfflineIndicator';
+import { QueryProvider } from '../src/contexts/QueryProvider';
 
 export {
   // Catch any errors thrown by the Layout component.
@@ -46,22 +49,35 @@ export default function RootLayout() {
   useEffect(() => {
     const checkAuth = async () => {
       try {
+        console.log('Checking authentication...');
         const token = await authApi.getToken();
+        console.log('Token:', token ? 'exists' : 'none');
+
         if (token) {
           setIsAuthenticated(true);
-          // Fetch user details to get role
+          // Fetch user details to get role with timeout
           try {
-            const userData = await authApi.getCurrentUser();
+            console.log('Fetching user data...');
+            const timeoutPromise = new Promise((_, reject) =>
+              setTimeout(() => reject(new Error('User fetch timeout')), 5000)
+            );
+            const userData = await Promise.race([
+              authApi.getCurrentUser(),
+              timeoutPromise
+            ]) as User;
+            console.log('User data fetched:', userData);
             setUser(userData);
           } catch (err) {
-            // If getCurrentUser fails, still consider authenticated but without user data
+            // If getCurrentUser fails or times out, still consider authenticated but without user data
             console.warn('Failed to fetch user data:', err);
+            setUser(null);
           }
         } else {
           setIsAuthenticated(false);
           setUser(null);
         }
       } catch (error) {
+        console.error('Auth check error:', error);
         setIsAuthenticated(false);
         setUser(null);
       } finally {
@@ -74,16 +90,31 @@ export default function RootLayout() {
     }
   }, [loaded]);
 
-  if (!loaded || !isAuthChecked) {
-    return null;
+  // Skip font loading for web
+  if (!loaded && Platform.OS !== 'web') {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#000' }}>
+        <Text style={{ color: '#fff' }}>Loading fonts...</Text>
+      </View>
+    );
+  }
+
+  if (!isAuthChecked) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#000' }}>
+        <Text style={{ color: '#fff' }}>Checking authentication...</Text>
+      </View>
+    );
   }
 
   return (
-    <CustomThemeProvider>
-      <AuthProvider>
-        <RootLayoutNav isAuthenticated={isAuthenticated} user={user} />
-      </AuthProvider>
-    </CustomThemeProvider>
+    <QueryProvider>
+      <CustomThemeProvider>
+        <AuthProvider>
+          <RootLayoutNav isAuthenticated={isAuthenticated} user={user} />
+        </AuthProvider>
+      </CustomThemeProvider>
+    </QueryProvider>
   );
 }
 
@@ -101,13 +132,14 @@ function RootLayoutNav({ isAuthenticated, user }: { isAuthenticated: boolean; us
 
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+      <OfflineIndicator />
       <Stack screenOptions={{ headerShown: false }}>
-        <Stack.Screen 
-          name="login" 
+        <Stack.Screen
+          name="login"
           options={{ headerShown: false }}
         />
-        <Stack.Screen 
-          name="(tabs)" 
+        <Stack.Screen
+          name="(tabs)"
           options={{ headerShown: false }}
         />
         <Stack.Screen name="modal" options={{ presentation: 'modal' }} />

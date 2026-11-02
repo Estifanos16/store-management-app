@@ -1,5 +1,6 @@
 import Constants from 'expo-constants';
 import * as SecureStore from 'expo-secure-store';
+import { Platform } from 'react-native';
 import { Product, CreateProductData, UpdateProductData } from '../../features/products/types/product';
 
 const API_BASE_URL = Constants.expoConfig?.extra?.EXPO_PUBLIC_API_BASE_URL || 
@@ -8,8 +9,18 @@ const API_BASE_URL = Constants.expoConfig?.extra?.EXPO_PUBLIC_API_BASE_URL ||
 
 const TOKEN_KEY = 'auth_token';
 
+// Helper for web-compatible storage
+const storage = {
+  getItem: async (key: string): Promise<string | null> => {
+    if (Platform.OS === 'web') {
+      return localStorage.getItem(key);
+    }
+    return await SecureStore.getItemAsync(key);
+  },
+};
+
 async function getAuthHeaders(): Promise<HeadersInit> {
-  const token = await SecureStore.getItemAsync(TOKEN_KEY);
+  const token = await storage.getItem(TOKEN_KEY);
   return {
     'Authorization': `Bearer ${token}`,
     'Content-Type': 'application/json',
