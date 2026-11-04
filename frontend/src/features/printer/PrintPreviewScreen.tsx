@@ -1,6 +1,7 @@
 import { StyleSheet, View, Text, ScrollView, ActivityIndicator, Alert } from 'react-native';
 import { useState } from 'react';
 import { SymbolView } from 'expo-symbols';
+import QRCode from 'react-native-qrcode-svg';
 
 import Colors from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
@@ -13,6 +14,8 @@ import {
   generateReceiptPDF,
   sharePDF,
 } from './printService';
+import { labelPrinter } from '@/src/services/print/LabelPrinter';
+import { Item } from '@/src/database/repositories/ItemRepository';
 
 interface PrintPreviewScreenProps {
   type: 'labels' | 'receipt';
@@ -26,16 +29,32 @@ export function PrintPreviewScreen({ type, data, onClose }: PrintPreviewScreenPr
   const [isPrinting, setIsPrinting] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
 
+  console.log('PrintPreviewScreen received data:', data);
+
   const handlePrint = async () => {
     try {
       setIsPrinting(true);
-      
+
       if (type === 'labels') {
-        await printLabels(data as LabelData[]);
+        // Convert LabelData to Item format for labelPrinter
+        const labels = data as LabelData[];
+        const items: Item[] = labels.map(label => ({
+          id: label.id,
+          shopId: 'shop-1',
+          productId: 'prod-1',
+          publicIdentifier: label.serialNumber || 'N/A',
+          uniqueQrCode: label.qrCode,
+          status: 'IN_STOCK',
+          costPrice: (label.price * 0.7).toString(),
+          sellingPrice: label.price.toString(),
+          registeredAt: new Date().toISOString(),
+        }));
+
+        await labelPrinter.printLabels(items);
       } else {
         await printReceipt(data as ReceiptData);
       }
-      
+
       Alert.alert('Success', 'Print job sent successfully!');
     } catch (error) {
       Alert.alert('Error', 'Failed to print. Please try again.');
@@ -48,15 +67,15 @@ export function PrintPreviewScreen({ type, data, onClose }: PrintPreviewScreenPr
   const handleGeneratePDF = async () => {
     try {
       setIsGenerating(true);
-      
-      let uri: string;
+
       if (type === 'labels') {
-        uri = await generateLabelPDF(data as LabelData[]);
+        // Use printService for LabelData directly
+        const uri = await generateLabelPDF(data as LabelData[]);
+        await sharePDF(uri);
       } else {
-        uri = await generateReceiptPDF(data as ReceiptData);
+        const uri = await generateReceiptPDF(data as ReceiptData);
+        await sharePDF(uri);
       }
-      
-      await sharePDF(uri);
     } catch (error) {
       Alert.alert('Error', 'Failed to generate PDF. Please try again.');
       console.error('PDF error:', error);
@@ -70,7 +89,7 @@ export function PrintPreviewScreen({ type, data, onClose }: PrintPreviewScreenPr
       const labels = data as LabelData[];
       return (
         <View style={styles.previewGrid}>
-          {labels.slice(0, 6).map((label, index) => (
+          {labels.map((label, index) => (
             <Card key={label.id || index} style={styles.labelPreview}>
               <View style={styles.labelHeader}>
                 <Text style={[styles.labelCategory, { color: colors.textSecondary }]}>
@@ -81,10 +100,11 @@ export function PrintPreviewScreen({ type, data, onClose }: PrintPreviewScreenPr
                 {label.name}
               </Text>
               <View style={styles.qrPlaceholder}>
-                <SymbolView
-                  name={{ ios: 'qrcode', android: 'qr_code', web: 'qr_code' }}
-                  tintColor={colors.primary}
-                  size={60}
+                <QRCode
+                  value={label.qrCode}
+                  size={80}
+                  color="black"
+                  backgroundColor="white"
                 />
               </View>
               <Text style={[styles.labelPrice, { color: colors.primary }]}>
@@ -95,15 +115,10 @@ export function PrintPreviewScreen({ type, data, onClose }: PrintPreviewScreenPr
               </Text>
             </Card>
           ))}
-          {labels.length > 6 && (
-            <Text style={[styles.moreText, { color: colors.textSecondary }]}>
-              +{labels.length - 6} more labels
-            </Text>
-          )}
         </View>
       );
     } else {
-      const receipt = data as ReceiptData;
+      const receipt = Array.isArray(data) ? data[0] as ReceiptData : data as ReceiptData;
       return (
         <Card style={styles.receiptPreview}>
           <View style={styles.receiptHeader}>
@@ -316,12 +331,6 @@ const styles = StyleSheet.create({
   labelId: {
     fontSize: 10,
     fontFamily: 'monospace',
-  },
-  moreText: {
-    width: '100%',
-    textAlign: 'center',
-    marginTop: 16,
-    fontSize: 14,
   },
   receiptPreview: {
     padding: 20,

@@ -15,6 +15,9 @@ interface ButtonProps {
   icon?: any;
   style?: ViewStyle;
   textStyle?: TextStyle;
+  layout?: 'horizontal' | 'vertical';
+  backgroundColor?: string;
+  iconColor?: string;
 }
 
 export function Button({
@@ -25,6 +28,9 @@ export function Button({
   icon,
   style,
   textStyle,
+  layout = 'horizontal',
+  backgroundColor,
+  iconColor,
 }: ButtonProps) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme];
@@ -32,8 +38,14 @@ export function Button({
   const getButtonStyle = (): ViewStyle => {
     const baseStyle: ViewStyle = {
       ...styles.button,
-      minHeight: 56,
     };
+
+    if (backgroundColor) {
+      return {
+        ...baseStyle,
+        backgroundColor: disabled ? colors.textSecondary : backgroundColor,
+      };
+    }
 
     switch (variant) {
       case 'primary':
@@ -69,6 +81,10 @@ export function Button({
       fontWeight: '600' as const,
     };
 
+    if (iconColor) {
+      return { ...baseStyle, color: iconColor };
+    }
+
     switch (variant) {
       case 'primary':
       case 'accent':
@@ -83,6 +99,7 @@ export function Button({
 
   const getIconColor = (): string => {
     if (disabled) return '#FFFFFF';
+    if (iconColor) return iconColor;
     if (variant === 'outline') return colors.primary;
     return '#FFFFFF';
   };
@@ -98,11 +115,11 @@ export function Button({
         <SymbolView
           name={icon}
           tintColor={getIconColor()}
-          size={20}
-          style={styles.icon}
+          size={layout === 'vertical' ? 32 : 20}
+          style={layout === 'vertical' ? styles.iconVertical : styles.icon}
         />
       )}
-      <Text style={[getTextStyle(), textStyle]}>{title}</Text>
+      <Text style={[getTextStyle(), textStyle, layout === 'vertical' && styles.textVertical]}>{title}</Text>
     </TouchableOpacity>
   );
 }
@@ -125,7 +142,15 @@ const styles = StyleSheet.create({
     fontSize: 15,
     letterSpacing: -0.3,
   },
+  textVertical: {
+    fontSize: 13,
+    marginTop: 8,
+    textAlign: 'center',
+  },
   icon: {
     marginRight: 8,
+  },
+  iconVertical: {
+    marginBottom: 4,
   },
 });

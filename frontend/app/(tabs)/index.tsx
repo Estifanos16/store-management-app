@@ -124,63 +124,90 @@ export default function DashboardScreen() {
         <View style={styles.actionsSection}>
           <Text style={[styles.sectionTitle, { color: colors.text }]}>Quick Actions</Text>
           
-          <Button
-            title="Quick Scan"
-            onPress={() => router.push('/scanner/item')}
-            variant="accent"
-            icon={{ ios: 'barcode', android: 'qr_code_scanner', web: 'qr_code_scanner' }}
-            style={styles.actionButton}
-          />
-          
-          <Button
-            title="View Products"
-            onPress={() => router.push('/(tabs)/products')}
-            variant="outline"
-            icon={{ ios: 'cube', android: 'inventory', web: 'inventory' }}
-            style={styles.actionButton}
-          />
-
-          <Button
-            title="Manage Items"
-            onPress={() => router.push('/items')}
-            variant="outline"
-            icon={{ ios: 'list.bullet', android: 'list', web: 'list' }}
-            style={styles.actionButton}
-          />
-
-          <Button
-            title="Sales History"
-            onPress={() => router.push('/sales')}
-            variant="outline"
-            icon={{ ios: 'clock', android: 'history', web: 'history' }}
-            style={styles.actionButton}
-          />
-
-          <Button
-            title="Add Expense"
-            onPress={() => router.push('/expenses')}
-            variant="outline"
-            icon={{ ios: 'minus.circle', android: 'remove_circle', web: 'remove_circle' }}
-            style={styles.actionButton}
-          />
-
-          <Button
-            title="Register Return"
-            onPress={() => router.push('/returns')}
-            variant="outline"
-            icon={{ ios: 'arrow.counterclockwise', android: 'refresh', web: 'refresh' }}
-            style={styles.actionButton}
-          />
-
-          {isOwner && (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.actionsScrollContent}
+          >
             <Button
-              title="View Reports"
-              onPress={() => router.push('/reports')}
-              variant="outline"
-              icon={{ ios: 'chart.line.uptrend.xyaxis', android: 'assessment', web: 'assessment' }}
+              title="Quick Scan"
+              onPress={() => router.push('/scanner')}
+              variant="primary"
+              icon={{ ios: 'barcode', android: 'qr_code_scanner', web: 'qr_code_scanner' }}
               style={styles.actionButton}
+              layout="vertical"
+              backgroundColor="rgba(124, 58, 237, 0.15)"
+              iconColor="#7C3AED"
             />
-          )}
+            
+            <Button
+              title="View Products"
+              onPress={() => router.push('/(tabs)/products')}
+              variant="primary"
+              icon={{ ios: 'cube', android: 'inventory', web: 'inventory' }}
+              style={styles.actionButton}
+              layout="vertical"
+              backgroundColor="rgba(5, 150, 105, 0.15)"
+              iconColor="#059669"
+            />
+
+            <Button
+              title="Manage Items"
+              onPress={() => router.push('/items')}
+              variant="primary"
+              icon={{ ios: 'list.bullet', android: 'list', web: 'list' }}
+              style={styles.actionButton}
+              layout="vertical"
+              backgroundColor="rgba(234, 88, 12, 0.15)"
+              iconColor="#EA580C"
+            />
+
+            <Button
+              title="Sales History"
+              onPress={() => router.push('/sales')}
+              variant="primary"
+              icon={{ ios: 'clock', android: 'history', web: 'history' }}
+              style={styles.actionButton}
+              layout="vertical"
+              backgroundColor="rgba(79, 70, 229, 0.15)"
+              iconColor="#4F46E5"
+            />
+
+            <Button
+              title="Add Expense"
+              onPress={() => router.push('/expenses')}
+              variant="primary"
+              icon={{ ios: 'minus.circle', android: 'remove_circle', web: 'remove_circle' }}
+              style={styles.actionButton}
+              layout="vertical"
+              backgroundColor="rgba(220, 38, 38, 0.15)"
+              iconColor="#DC2626"
+            />
+
+            <Button
+              title="Register Return"
+              onPress={() => router.push('/returns')}
+              variant="primary"
+              icon={{ ios: 'arrow.counterclockwise', android: 'refresh', web: 'refresh' }}
+              style={styles.actionButton}
+              layout="vertical"
+              backgroundColor="rgba(217, 119, 6, 0.15)"
+              iconColor="#D97706"
+            />
+
+            {isOwner && (
+              <Button
+                title="View Reports"
+                onPress={() => router.push('/reports')}
+                variant="primary"
+                icon={{ ios: 'chart.line.uptrend.xyaxis', android: 'assessment', web: 'assessment' }}
+                style={styles.actionButton}
+                layout="vertical"
+                backgroundColor="rgba(8, 145, 178, 0.15)"
+                iconColor="#0891B2"
+              />
+            )}
+          </ScrollView>
         </View>
 
         {/* Recent Activity */}
@@ -259,8 +286,16 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     letterSpacing: -0.3,
   },
+  actionsScrollContent: {
+    gap: 12,
+    paddingRight: 20,
+  },
   actionButton: {
-    marginBottom: 12,
+    minWidth: 140,
+    height: 100,
+    borderRadius: 12,
+    shadowOpacity: 0,
+    elevation: 0,
   },
   activitySection: {
     marginBottom: 20,

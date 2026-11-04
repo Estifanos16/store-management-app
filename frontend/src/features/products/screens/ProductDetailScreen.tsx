@@ -11,7 +11,6 @@ import {
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { productsApi } from '../../../services/api/productsApi';
 import { Product } from '../types/product';
-import { useMockProducts } from '../mockData';
 import Colors from '../../../../constants/Colors';
 import { useColorScheme } from '../../../../components/useColorScheme';
 import { User } from '../../../types/auth';
@@ -25,7 +24,6 @@ export default function ProductDetailScreen({ user }: ProductDetailScreenProps) 
   const [product, setProduct] = useState<Product | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [useMock, setUseMock] = useState(true);
   const router = useRouter();
   const colorScheme = useColorScheme();
 
@@ -33,7 +31,7 @@ export default function ProductDetailScreen({ user }: ProductDetailScreenProps) 
 
   useEffect(() => {
     loadProduct();
-  }, [productId, useMock]);
+  }, [productId]);
 
   const loadProduct = async () => {
     if (!productId) {
@@ -44,32 +42,10 @@ export default function ProductDetailScreen({ user }: ProductDetailScreenProps) 
 
     try {
       setError(null);
-      const mockData = useMockProducts(useMock);
-      
-      if (mockData) {
-        const found = mockData.data.find(p => p.id === productId);
-        if (found) {
-          setProduct(found);
-        } else {
-          setError('Product not found');
-        }
-        setIsLoading(false);
-        return;
-      }
-
       const data = await productsApi.getProductById(productId);
       setProduct(data);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load product');
-      // Fallback to mock data on error
-      const mockData = useMockProducts(true);
-      if (mockData) {
-        const found = mockData.data.find(p => p.id === productId);
-        if (found) {
-          setProduct(found);
-          setUseMock(true);
-        }
-      }
     } finally {
       setIsLoading(false);
     }

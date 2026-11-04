@@ -11,13 +11,15 @@ import {
   ScrollView,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { SymbolView } from 'expo-symbols';
 import { productsApi } from '../../../services/api/productsApi';
 import { Product } from '../types/product';
-import { useMockProducts } from '../mockData';
 import Colors from '../../../../constants/Colors';
 import { useColorScheme } from '../../../../components/useColorScheme';
 import { User } from '../../../types/auth';
 import { useAuth } from '../../../contexts/AuthContext';
+import { LabelData } from '@/src/features/printer/types';
+import { PrintPreviewScreen } from '@/src/features/printer';
 
 interface ProductsListScreenProps {
   user: User | null;
@@ -30,10 +32,11 @@ export default function ProductsListScreen({ user }: ProductsListScreenProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [useMock, setUseMock] = useState(false);
-  const [forceReal, setForceReal] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedProducts, setSelectedProducts] = useState<Set<string>>(new Set());
+  const [showPrintPreview, setShowPrintPreview] = useState(false);
   const router = useRouter();
   const colorScheme = useColorScheme();
 
@@ -44,7 +47,7 @@ export default function ProductsListScreen({ user }: ProductsListScreenProps) {
 
   useEffect(() => {
     loadProducts();
-  }, [useMock, currentShop]);
+  }, [currentShop]);
 
   useEffect(() => {
     filterProducts();
@@ -75,49 +78,21 @@ export default function ProductsListScreen({ user }: ProductsListScreenProps) {
   const loadProducts = async () => {
     try {
       setError(null);
-      
-      console.log('loadProducts called - currentShop:', currentShop, 'useMock:', useMock);
-      
-      // Use mock data if explicitly requested
-      if (useMock) {
-        console.log('Using mock data (user selected)');
-        const mockData = useMockProducts(true);
-        if (mockData) {
-          setProducts(mockData.data);
-        }
-        setIsLoading(false);
-        return;
-      }
-      
-      // Try real API when shop is available
+
+      console.log('loadProducts called - currentShop:', currentShop);
+
+      // Load from API when shop is available
       if (currentShop) {
         console.log('Loading products from API for shop:', currentShop.id);
-        try {
-          const data = await productsApi.getProducts({ shopId: currentShop.id });
-          console.log('Products loaded from API:', data);
-          setProducts(data);
-          setIsLoading(false);
-          return;
-        } catch (apiError) {
-          console.error('API call failed:', apiError);
-          throw apiError;
-        }
-      }
-
-      // Fallback to mock data if no shop
-      console.log('No shop selected, using mock data');
-      const mockData = useMockProducts(true);
-      if (mockData) {
-        setProducts(mockData.data);
+        const data = await productsApi.getProducts({ shopId: currentShop.id });
+        console.log('Products loaded from API:', data);
+        setProducts(data);
+      } else {
+        setError('No shop selected');
       }
     } catch (err) {
       console.error('Failed to load products:', err);
       setError(err instanceof Error ? err.message : 'Failed to load products');
-      // Fallback to mock data on error
-      const mockData = useMockProducts(true);
-      if (mockData) {
-        setProducts(mockData.data);
-      }
     } finally {
       setIsLoading(false);
       setIsRefreshing(false);
@@ -129,10 +104,56 @@ export default function ProductsListScreen({ user }: ProductsListScreenProps) {
     loadProducts();
   };
 
+  const toggleSelectionMode = () => {
+    setSelectionMode(!selectionMode);
+    setSelectedProducts(new Set());
+  };
+
+  const toggleProductSelection = (productId: string) => {
+    const newSelected = new Set(selectedProducts);
+    if (newSelected.has(productId)) {
+      newSelected.delete(productId);
+    } else {
+      newSelected.add(productId);
+    }
+    setSelectedProducts(newSelected);
+  };
+
+  const handlePrintLabels = () => {
+    const selectedProductsData = products.filter(p => selectedProducts.has(p.id));
+    if (selectedProductsData.length === 0) return;
+
+    const labelData: LabelData[] = selectedProductsData.map(product => ({
+      id: product.id,
+      name: product.name,
+      price: parseFloat(product.defaultSellingPrice),
+      qrCode: product.id,
+      category: product.category,
+      serialNumber: product.id,
+    }));
+
+    setShowPrintPreview(true);
+  };
+
   const renderProduct = ({ item }: { item: Product }) => (
     <TouchableOpacity
-      style={styles.productCard}
-      onPress={() => router.push(`/products/${item.id}`)}
+      style={[
+        styles.productCard,
+        selectedProducts.has(item.id) && { borderColor: Colors[colorScheme].primary, borderWidth: 2 },
+      ]}
+      onPress={() => {
+        if (selectionMode) {
+          toggleProductSelection(item.id);
+        } else {
+          router.push(`/products/${item.id}`);
+        }
+      }}
+      onLongPress={() => {
+        if (!selectionMode) {
+          setSelectionMode(true);
+          toggleProductSelection(item.id);
+        }
+      }}
     >
       <View style={styles.productInfo}>
         <Text style={[styles.productName, { color: Colors[colorScheme].text }]}>{item.name}</Text>
@@ -145,9 +166,17 @@ export default function ProductsListScreen({ user }: ProductsListScreenProps) {
           </Text>
         </View>
       </View>
-      <View style={[styles.statusBadge, { backgroundColor: !item.archived ? Colors[colorScheme].success : Colors[colorScheme].neutral }]}>
-        <Text style={styles.statusText}>{!item.archived ? 'Active' : 'Archived'}</Text>
-      </View>
+      {selectionMode ? (
+        <View style={[styles.checkbox, selectedProducts.has(item.id) && { backgroundColor: Colors[colorScheme].primary }]}>
+          {selectedProducts.has(item.id) && (
+            <SymbolView name={{ ios: 'checkmark', android: 'check', web: 'check' }} tintColor="#FFFFFF" size={16} />
+          )}
+        </View>
+      ) : (
+        <View style={[styles.statusBadge, { backgroundColor: !item.archived ? Colors[colorScheme].success : Colors[colorScheme].neutral }]}>
+          <Text style={styles.statusText}>{!item.archived ? 'Active' : 'Archived'}</Text>
+        </View>
+      )}
     </TouchableOpacity>
   );
 
@@ -183,25 +212,6 @@ export default function ProductsListScreen({ user }: ProductsListScreenProps) {
       flexDirection: 'row',
       gap: 8,
       alignItems: 'center',
-    },
-    modeButton: {
-      paddingHorizontal: 12,
-      paddingVertical: 6,
-      borderRadius: 6,
-      borderWidth: 1,
-      borderColor: Colors[colorScheme].border,
-    },
-    modeButtonActive: {
-      backgroundColor: Colors[colorScheme].warning,
-      borderColor: Colors[colorScheme].warning,
-    },
-    modeButtonText: {
-      fontSize: 12,
-      fontWeight: '600',
-      color: Colors[colorScheme].text,
-    },
-    modeButtonTextActive: {
-      color: '#fff',
     },
     itemsButton: {
       backgroundColor: Colors[colorScheme].accent,
@@ -338,20 +348,21 @@ export default function ProductsListScreen({ user }: ProductsListScreenProps) {
       color: Colors[colorScheme].text,
       opacity: 0.7,
     },
-    mockBadge: {
-      position: 'absolute',
-      top: 60,
-      right: 16,
-      backgroundColor: '#FF9800',
-      paddingHorizontal: 8,
-      paddingVertical: 4,
-      borderRadius: 4,
-      zIndex: 1,
+    headerButton: {
+      width: 40,
+      height: 40,
+      borderRadius: 20,
+      alignItems: 'center',
+      justifyContent: 'center',
     },
-    mockBadgeText: {
-      color: '#fff',
-      fontSize: 12,
-      fontWeight: '600',
+    checkbox: {
+      width: 24,
+      height: 24,
+      borderRadius: 4,
+      borderWidth: 2,
+      borderColor: '#E2E8F0',
+      alignItems: 'center',
+      justifyContent: 'center',
     },
   });
 
@@ -363,37 +374,77 @@ export default function ProductsListScreen({ user }: ProductsListScreenProps) {
     );
   }
 
+  if (showPrintPreview) {
+    const selectedProductsData = products.filter(p => selectedProducts.has(p.id));
+    const labelData: LabelData[] = selectedProductsData.map(product => ({
+      id: product.id,
+      name: product.name,
+      price: parseFloat(product.defaultSellingPrice),
+      qrCode: product.id,
+      category: product.category,
+      serialNumber: product.id,
+    }));
+
+    return (
+      <PrintPreviewScreen
+        type="labels"
+        data={labelData}
+        onClose={() => {
+          setShowPrintPreview(false);
+          setSelectionMode(false);
+          setSelectedProducts(new Set());
+        }}
+      />
+    );
+  }
+
   return (
     <View style={styles.container}>
-      {useMock && (
-        <View style={styles.mockBadge}>
-          <Text style={styles.mockBadgeText}>MOCK DATA</Text>
-        </View>
-      )}
       <View style={styles.header}>
-        <Text style={styles.title}>Products</Text>
+        <Text style={styles.title}>
+          {selectionMode ? `Selected (${selectedProducts.size})` : 'Products'}
+        </Text>
         <View style={styles.headerButtons}>
-          <TouchableOpacity
-            style={[styles.modeButton, useMock && styles.modeButtonActive]}
-            onPress={() => setUseMock(!useMock)}
-          >
-            <Text style={[styles.modeButtonText, useMock && styles.modeButtonTextActive]}>
-              {useMock ? 'Mock' : 'API'}
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.itemsButton}
-            onPress={() => router.push('/items')}
-          >
-            <Text style={styles.itemsButtonText}>Items</Text>
-          </TouchableOpacity>
-          {canAddProduct && (
-            <TouchableOpacity
-              style={styles.addButton}
-              onPress={() => router.push('/products/new')}
-            >
-              <Text style={styles.addButtonText}>+ Add</Text>
-            </TouchableOpacity>
+          {selectionMode ? (
+            <>
+              <TouchableOpacity
+                style={[styles.headerButton, { backgroundColor: Colors[colorScheme].card }]}
+                onPress={toggleSelectionMode}
+              >
+                <SymbolView name={{ ios: 'xmark', android: 'close', web: 'close' }} tintColor={Colors[colorScheme].text} size={20} />
+              </TouchableOpacity>
+              {selectedProducts.size > 0 && (
+                <TouchableOpacity
+                  style={[styles.headerButton, { backgroundColor: Colors[colorScheme].primary }]}
+                  onPress={handlePrintLabels}
+                >
+                  <SymbolView name={{ ios: 'printer', android: 'print', web: 'print' }} tintColor="#FFFFFF" size={20} />
+                </TouchableOpacity>
+              )}
+            </>
+          ) : (
+            <>
+              <TouchableOpacity
+                style={[styles.headerButton, { backgroundColor: Colors[colorScheme].card }]}
+                onPress={toggleSelectionMode}
+              >
+                <SymbolView name={{ ios: 'checkmark.square', android: 'check_box', web: 'check_box' }} tintColor={Colors[colorScheme].text} size={20} />
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.itemsButton}
+                onPress={() => router.push('/items')}
+              >
+                <Text style={styles.itemsButtonText}>Items</Text>
+              </TouchableOpacity>
+              {canAddProduct && (
+                <TouchableOpacity
+                  style={styles.addButton}
+                  onPress={() => router.push('/products/new')}
+                >
+                  <Text style={styles.addButtonText}>+ Add</Text>
+                </TouchableOpacity>
+              )}
+            </>
           )}
         </View>
       </View>
@@ -432,7 +483,7 @@ export default function ProductsListScreen({ user }: ProductsListScreenProps) {
         </ScrollView>
       </View>
 
-      {error && !useMock && (
+      {error && (
         <View style={styles.errorContainer}>
           <Text style={styles.errorText}>{error}</Text>
           <TouchableOpacity style={styles.retryButton} onPress={() => loadProducts()}>

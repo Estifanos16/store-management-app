@@ -1,8 +1,8 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { useNetworkStatus } from '../hooks/useNetworkStatus';
-import Colors from '../constants/Colors';
-import { useColorScheme } from '../components/useColorScheme';
+import Colors from '@/constants/Colors';
+import { useColorScheme } from '@/components/useColorScheme';
 
 export function OfflineIndicator() {
   const networkStatus = useNetworkStatus();

@@ -1,7 +1,10 @@
 import * as Print from 'expo-print';
+import * as Sharing from 'expo-sharing';
 import { Platform } from 'react-native';
 
 import { LabelData, ReceiptData, PrintOptions } from './types';
+
+let isPrinting = false;
 
 /**
  * Format price in Ethiopian Birr (ETB)
@@ -25,15 +28,17 @@ const generateQRCodeSVG = (data: string, size: number = 60): string => {
  * Generate HTML for a single QR label sticker
  */
 const generateLabelHTML = (label: LabelData): string => {
-  const qrUrl = generateQRCodeSVG(label.qrCode, 60);
-  
+  const qrUrl = generateQRCodeSVG(label.qrCode, 80);
+
+  // Shorten name if too long
+  const displayName = label.name.length > 12 ? label.name.substring(0, 12) + '...' : label.name;
+
   return `
     <div style="
-      width: 150px;
-      height: 180px;
-      border: 2px solid #E2E8F0;
-      border-radius: 6px;
-      padding: 8px;
+      width: 30mm;
+      height: 20mm;
+      border: 1px solid #000;
+      padding: 1.5mm;
       text-align: center;
       font-family: Arial, sans-serif;
       background: white;
@@ -43,52 +48,27 @@ const generateLabelHTML = (label: LabelData): string => {
       justify-content: space-between;
       box-sizing: border-box;
     ">
-      <div style="width: 100%; text-align: left;">
-        <div style="
-          font-size: 8px;
-          color: #64748B;
-          font-weight: 600;
-          margin-bottom: 1px;
-        ">${label.category || 'PRODUCT'}</div>
-        <div style="
-          font-size: 11px;
-          color: #0F172A;
-          font-weight: 700;
-          line-height: 1.1;
-          overflow: hidden;
-          text-overflow: ellipsis;
-          display: -webkit-box;
-          -webkit-line-clamp: 2;
-          -webkit-box-orient: vertical;
-        ">${label.name}</div>
-      </div>
-      
-      <img 
-        src="${qrUrl}" 
-        style="width: 60px; height: 60px; margin: 4px 0;"
+      <div style="
+        font-size: 6pt;
+        font-weight: bold;
+        text-align: center;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        width: 100%;
+      ">${displayName}</div>
+
+      <img
+        src="${qrUrl}"
+        style="width: 12mm; height: 12mm;"
         alt="QR Code"
       />
-      
-      <div style="width: 100%;">
-        <div style="
-          font-size: 12px;
-          color: #0F766E;
-          font-weight: 700;
-          margin-bottom: 1px;
-        ">${formatPrice(label.price)}</div>
-        <div style="
-          font-size: 7px;
-          color: #64748B;
-          font-family: monospace;
-        ">ID: ${label.id}</div>
-        ${label.serialNumber ? `
-          <div style="
-            font-size: 7px;
-            color: #64748B;
-            font-family: monospace;
-          ">SN: ${label.serialNumber}</div>
-        ` : ''}
-      </div>
+
+      <div style="
+        font-size: 7pt;
+        font-weight: bold;
+        text-align: center;
+      ">${parseFloat(label.price).toFixed(0)}</div>
     </div>
   `;
 };
@@ -98,7 +78,7 @@ const generateLabelHTML = (label: LabelData): string => {
  */
 const generateLabelSheetHTML = (labels: LabelData[]): string => {
   const labelsHTML = labels.map(label => generateLabelHTML(label)).join('');
-  
+
   return `
     <!DOCTYPE html>
     <html>
@@ -109,7 +89,7 @@ const generateLabelSheetHTML = (labels: LabelData[]): string => {
       <style>
         @page {
           size: A4;
-          margin: 10mm;
+          margin: 5mm;
         }
         body {
           margin: 0;
@@ -118,9 +98,10 @@ const generateLabelSheetHTML = (labels: LabelData[]): string => {
         }
         .sheet {
           display: grid;
-          grid-template-columns: repeat(6, 1fr);
-          gap: 6px;
-          padding: 6px;
+          grid-template-columns: repeat(8, 30mm);
+          grid-template-rows: repeat(6, 20mm);
+          gap: 2mm;
+          padding: 2mm;
         }
         @media print {
           .sheet {
@@ -301,21 +282,29 @@ export const printLabels = async (
   labels: LabelData[],
   options?: PrintOptions
 ): Promise<void> => {
+  if (isPrinting) {
+    throw new Error('Another print request is already in progress. Please wait for the current print to complete.');
+  }
+
+  isPrinting = true;
+
   try {
     const html = generateLabelSheetHTML(labels);
-    
+
     await Print.printAsync({
       html,
       printerUrl: options?.printerUrl,
       orientation: options?.orientation || 'portrait',
     });
-    
+
     // On mobile, this will show the print dialog
     // On web, it will trigger the browser print
     console.log('Print initiated');
   } catch (error) {
     console.error('Print error:', error);
     throw new Error('Failed to print labels');
+  } finally {
+    isPrinting = false;
   }
 };
 
@@ -388,10 +377,29 @@ export const sharePDF = async (uri: string): Promise<void> => {
       link.click();
       document.body.removeChild(link);
     } else {
-      // On mobile, just return the URI - the caller can handle sharing
-      console.log('PDF generated at:', uri);
-      // Note: Without expo-sharing, users can use the file directly
-      // or implement custom sharing logic
+      // On mobile, try to share the PDF
+      console.log('PDF saved to:', uri);
+      console.log('');
+      console.log('To access the PDF:');
+      console.log('Option 1 (Recommended): Use a development build for full sharing support');
+      console.log('  Run: npx expo run:android');
+      console.log('');
+      console.log('Option 2: Use a file manager app to access:');
+      console.log('  Android/data/host.exp.exponent/cache/Print/');
+      console.log('  Recommended file managers: FX File Explorer, MT Manager');
+
+      try {
+        await Sharing.shareAsync(uri, {
+          mimeType: 'application/pdf',
+          dialogTitle: 'Share PDF',
+        });
+      } catch (shareError) {
+        // On Expo Go, sharing is restricted due to file permissions
+        console.log('');
+        console.log('Note: Direct sharing is restricted in Expo Go.');
+        console.log('The PDF is saved and can be accessed via file manager as shown above.');
+        // Don't throw an error - the PDF was saved successfully
+      }
     }
   } catch (error) {
     console.error('Share error:', error);

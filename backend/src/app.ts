@@ -49,8 +49,7 @@ export async function buildServer() {
   app.decorate('requireAuth', async (request, reply) => {
     const authHeader = request.headers.authorization;
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      reply.code(401).send({ error: 'Unauthorized', message: 'A bearer token is required.' });
-      return;
+      throw new Error('Unauthorized: A bearer token is required.');
     }
 
     try {
@@ -67,7 +66,7 @@ export async function buildServer() {
       });
 
       if (!user || !user.active) {
-        throw new Error('inactive-user');
+        throw new Error('Unauthorized: User not found or inactive.');
       }
 
       (request as any).user = {
@@ -81,29 +80,25 @@ export async function buildServer() {
           shop: membership.shop,
         })),
       };
-    } catch {
-      reply.code(401).send({ error: 'Unauthorized', message: 'Invalid or expired token.' });
-      return;
+    } catch (error) {
+      throw new Error('Unauthorized: Invalid or expired token.');
     }
   });
 
   app.decorate('requireShopAccess', (shopId: string) => async (request, reply) => {
     if (!shopId) {
-      reply.code(400).send({ error: 'Bad Request', message: 'shopId is required.' });
-      return;
+      throw new Error('Bad Request: shopId is required.');
     }
 
     await app.requireAuth(request, reply);
     const requestUser = getRequestUser(request);
     if (!requestUser) {
-      reply.code(401).send({ error: 'Unauthorized', message: 'Authentication required.' });
-      return;
+      throw new Error('Unauthorized: Authentication required.');
     }
 
     const membership = requestUser.memberships?.find((item: any) => item.shopId === shopId);
     if (!membership) {
-      reply.code(403).send({ error: 'Forbidden', message: 'You do not have access to this shop.' });
-      return;
+      throw new Error('Forbidden: You do not have access to this shop.');
     }
 
     (request as any).user = {
@@ -117,14 +112,12 @@ export async function buildServer() {
     await app.requireShopAccess(shopId)(request, reply);
     const requestUser = getRequestUser(request);
     if (!requestUser) {
-      reply.code(401).send({ error: 'Unauthorized', message: 'Authentication required.' });
-      return;
+      throw new Error('Unauthorized: Authentication required.');
     }
 
     const membership = requestUser.memberships?.find((item: any) => item.shopId === shopId);
     if (!membership || !roles.includes(membership.role)) {
-      reply.code(403).send({ error: 'Forbidden', message: 'Insufficient permissions for this action.' });
-      return;
+      throw new Error('Forbidden: Insufficient permissions for this action.');
     }
   });
 
@@ -158,6 +151,21 @@ export async function buildServer() {
   await app.register(expensesRoutes, { prefix: '/api' });
   await app.register(reportsRoutes, { prefix: '/api' });
   await app.register(syncRoutes, { prefix: '/api' });
+
+  // Global error handler
+  app.setErrorHandler((error, request, reply) => {
+    const errorMessage = error.message || 'Internal Server Error';
+
+    if (errorMessage.startsWith('Unauthorized')) {
+      reply.code(401).send({ error: 'Unauthorized', message: errorMessage.replace('Unauthorized: ', '') });
+    } else if (errorMessage.startsWith('Forbidden')) {
+      reply.code(403).send({ error: 'Forbidden', message: errorMessage.replace('Forbidden: ', '') });
+    } else if (errorMessage.startsWith('Bad Request')) {
+      reply.code(400).send({ error: 'Bad Request', message: errorMessage.replace('Bad Request: ', '') });
+    } else {
+      reply.code(500).send({ error: 'Internal Server Error', message: errorMessage });
+    }
+  });
 
   app.setErrorHandler((error, request, reply) => {
     if (error instanceof Error && error.message === 'Unauthorized') {

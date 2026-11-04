@@ -16,7 +16,6 @@ import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { productsApi } from '../../../services/api/productsApi';
 import { CreateProductData, UpdateProductData, Product } from '../types/product';
-import { useMockProducts } from '../mockData';
 import { productSchema, ProductFormData } from '../schemas/productSchema';
 import Colors from '../../../../constants/Colors';
 import { useColorScheme } from '../../../../components/useColorScheme';
@@ -30,7 +29,6 @@ export default function ProductFormScreen({ user }: ProductFormScreenProps) {
   const { productId, mode } = useLocalSearchParams<{ productId?: string; mode?: string }>();
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [useMock, setUseMock] = useState(true);
   const router = useRouter();
   const colorScheme = useColorScheme();
 
@@ -64,22 +62,6 @@ export default function ProductFormScreen({ user }: ProductFormScreenProps) {
 
     try {
       setIsLoading(true);
-      const mockData = useMockProducts(useMock);
-      
-      if (mockData) {
-        const found = mockData.data.find(p => p.id === productId);
-        if (found) {
-          setValue('name', found.name);
-          setValue('description', found.description || '');
-          setValue('price', found.price);
-          setValue('stock', found.stock);
-          setValue('category', found.category || '');
-          setValue('imageUrl', found.imageUrl || '');
-        }
-        setIsLoading(false);
-        return;
-      }
-
       const data = await productsApi.getProductById(productId);
       setValue('name', data.name);
       setValue('description', data.description || '');

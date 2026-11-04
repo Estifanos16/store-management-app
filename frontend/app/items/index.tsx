@@ -14,8 +14,10 @@ import { itemsApi } from '@/src/services/api/itemsApi';
 import { useAuth } from '@/src/contexts/AuthContext';
 import Colors from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
-import { Card, StatusChip } from '@/src/components/common';
+import { Card, StatusChip, Button } from '@/src/components/common';
 import { Item } from '@/src/features/items/types/item';
+import { LabelData } from '@/src/features/printer/types';
+import { PrintPreviewScreen } from '@/src/features/printer';
 
 export default function ItemsListScreen() {
   const router = useRouter();
@@ -29,6 +31,9 @@ export default function ItemsListScreen() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
   const [error, setError] = useState<string | null>(null);
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
+  const [showPrintPreview, setShowPrintPreview] = useState(false);
 
   const statusOptions = ['all', 'IN_STOCK', 'SOLD', 'RETURNED', 'DAMAGED', 'LOST'];
 
@@ -69,10 +74,51 @@ export default function ItemsListScreen() {
     setSelectedStatus(status);
   };
 
+  const toggleSelectionMode = () => {
+    setSelectionMode(!selectionMode);
+    setSelectedItems(new Set());
+  };
+
+  const toggleItemSelection = (itemId: string) => {
+    const newSelected = new Set(selectedItems);
+    if (newSelected.has(itemId)) {
+      newSelected.delete(itemId);
+    } else {
+      newSelected.add(itemId);
+    }
+    setSelectedItems(newSelected);
+  };
+
+  const handlePrintLabels = () => {
+    const selectedItemsData = items.filter(item => selectedItems.has(item.id));
+    console.log('Selected items for printing:', selectedItemsData);
+    if (selectedItemsData.length === 0) {
+      return;
+    }
+
+    setShowPrintPreview(true);
+  };
+
   const renderItem = ({ item }: { item: Item }) => (
     <TouchableOpacity
-      style={[styles.itemCard, { backgroundColor: colors.card, borderColor: colors.border }]}
-      onPress={() => router.push(`/items/${item.id}`)}
+      style={[
+        styles.itemCard,
+        { backgroundColor: colors.card, borderColor: colors.border },
+        selectedItems.has(item.id) && { borderColor: colors.primary, borderWidth: 2 },
+      ]}
+      onPress={() => {
+        if (selectionMode) {
+          toggleItemSelection(item.id);
+        } else {
+          router.push(`/items/${item.id}`);
+        }
+      }}
+      onLongPress={() => {
+        if (!selectionMode) {
+          setSelectionMode(true);
+          toggleItemSelection(item.id);
+        }
+      }}
     >
       <View style={styles.itemHeader}>
         <View style={styles.itemInfo}>
@@ -81,7 +127,15 @@ export default function ItemsListScreen() {
             {item.publicIdentifier}
           </Text>
         </View>
-        <StatusChip status={item.status.toLowerCase()} />
+        {selectionMode ? (
+          <View style={[styles.checkbox, selectedItems.has(item.id) && { backgroundColor: colors.primary }]}>
+            {selectedItems.has(item.id) && (
+              <SymbolView name={{ ios: 'checkmark', android: 'check', web: 'check' }} tintColor="#FFFFFF" size={16} />
+            )}
+          </View>
+        ) : (
+          <StatusChip status={item.status.toLowerCase()} />
+        )}
       </View>
 
       <View style={styles.itemDetails}>
@@ -115,16 +169,71 @@ export default function ItemsListScreen() {
     );
   }
 
+  if (showPrintPreview) {
+    const selectedItemsData = items.filter(item => selectedItems.has(item.id));
+    const labelData: LabelData[] = selectedItemsData.map(item => ({
+      id: item.id,
+      name: item.product?.name || 'Unknown',
+      price: parseFloat(item.sellingPrice),
+      qrCode: item.uniqueQrCode,
+      category: item.product?.category,
+      serialNumber: item.publicIdentifier,
+    }));
+
+    return (
+      <PrintPreviewScreen
+        type="labels"
+        data={labelData}
+        onClose={() => {
+          setShowPrintPreview(false);
+          setSelectionMode(false);
+          setSelectedItems(new Set());
+        }}
+      />
+    );
+  }
+
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <View style={styles.header}>
-        <Text style={[styles.title, { color: colors.text }]}>Items</Text>
-        <TouchableOpacity
-          style={[styles.addButton, { backgroundColor: colors.primary }]}
-          onPress={() => router.push('/items/register')}
-        >
-          <SymbolView name={{ ios: 'plus', android: 'add', web: 'add' }} tintColor="#FFFFFF" size={20} />
-        </TouchableOpacity>
+        <Text style={[styles.title, { color: colors.text }]}>
+          {selectionMode ? `Selected (${selectedItems.size})` : 'Items'}
+        </Text>
+        <View style={styles.headerActions}>
+          {selectionMode ? (
+            <>
+              <TouchableOpacity
+                style={[styles.headerButton, { backgroundColor: colors.card }]}
+                onPress={toggleSelectionMode}
+              >
+                <SymbolView name={{ ios: 'xmark', android: 'close', web: 'close' }} tintColor={colors.text} size={20} />
+              </TouchableOpacity>
+              {selectedItems.size > 0 && (
+                <TouchableOpacity
+                  style={[styles.headerButton, { backgroundColor: colors.primary }]}
+                  onPress={handlePrintLabels}
+                >
+                  <SymbolView name={{ ios: 'printer', android: 'print', web: 'print' }} tintColor="#FFFFFF" size={20} />
+                </TouchableOpacity>
+              )}
+            </>
+          ) : (
+            <>
+              <TouchableOpacity
+                style={[styles.headerButton, { backgroundColor: colors.card }]}
+                onPress={toggleSelectionMode}
+              >
+                <SymbolView name={{ ios: 'checkmark.square', android: 'check_box', web: 'check_box' }} tintColor={colors.text} size={20} />
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.addButton, { backgroundColor: colors.primary }]}
+                onPress={() => router.push('/items/register')}
+              >
+                <SymbolView name={{ ios: 'plus', android: 'add', web: 'add' }} tintColor="#FFFFFF" size={20} />
+              </TouchableOpacity>
+            </>
+          )}
+        </View>
       </View>
 
       {/* Status Filter */}
@@ -202,10 +311,30 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: '700',
   },
+  headerActions: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  headerButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   addButton: {
     width: 40,
     height: 40,
     borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  checkbox: {
+    width: 24,
+    height: 24,
+    borderRadius: 4,
+    borderWidth: 2,
+    borderColor: '#E2E8F0',
     alignItems: 'center',
     justifyContent: 'center',
   },
