@@ -4,6 +4,7 @@ import jwt from '@fastify/jwt';
 import authRoutes from './modules/auth/auth.routes.js';
 import shopsRoutes from './modules/shops/shops.routes.js';
 import productsRoutes from './modules/products/products.routes.js';
+import categoriesRoutes from './modules/categories/categories.routes.js';
 import itemsRoutes from './modules/items/items.routes.js';
 import salesRoutes from './modules/sales/sales.routes.js';
 import returnsRoutes from './modules/returns/returns.routes.js';
@@ -176,6 +177,7 @@ export async function buildServer() {
   await app.register(authRoutes, { prefix: '/api/auth' });
   await app.register(shopsRoutes, { prefix: '/api' });
   await app.register(productsRoutes, { prefix: '/api' });
+  await app.register(categoriesRoutes, { prefix: '/api' });
   await app.register(itemsRoutes, { prefix: '/api' });
   await app.register(salesRoutes, { prefix: '/api' });
   await app.register(returnsRoutes, { prefix: '/api' });

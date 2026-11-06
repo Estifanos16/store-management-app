@@ -9,7 +9,7 @@ import {
   ScrollView,
   TouchableOpacity,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { itemsApi } from '@/src/services/api/itemsApi';
 import { productsApi } from '@/src/services/api/productsApi';
 import { useAuth } from '@/src/contexts/AuthContext';
@@ -22,8 +22,9 @@ export default function ItemRegistrationScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme];
   const { currentShop } = useAuth();
+  const { productId: initialProductId } = useLocalSearchParams<{ productId?: string }>();
 
-  const [productId, setProductId] = useState('');
+  const [productId, setProductId] = useState(initialProductId ?? '');
   const [quantity, setQuantity] = useState('1');
   const [costPrice, setCostPrice] = useState('');
   const [sellingPrice, setSellingPrice] = useState('');
@@ -33,8 +34,8 @@ export default function ItemRegistrationScreen() {
   const loadProducts = async () => {
     if (!currentShop) return;
     try {
-      const data = await productsApi.getProducts();
-      setProducts(data.products || []);
+      const data = await productsApi.getProducts({ shopId: currentShop.id });
+      setProducts(data);
     } catch (error) {
       console.error('Failed to load products:', error);
     }

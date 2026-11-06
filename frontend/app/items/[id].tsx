@@ -7,7 +7,7 @@ import Colors from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
 import { Button, Card, StatusChip } from '@/src/components/common';
 
-const STATUS_OPTIONS = ['IN_STOCK', 'SOLD', 'RETURNED', 'DAMAGED'];
+const STATUS_OPTIONS = ['IN_STOCK', 'SOLD', 'RETURNED', 'DAMAGED', 'LOST'];
 
 export default function ItemDetailScreen() {
   const router = useRouter();

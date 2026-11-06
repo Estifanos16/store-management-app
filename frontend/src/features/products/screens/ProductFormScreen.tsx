@@ -72,7 +72,7 @@ export default function ProductFormScreen({ user }: ProductFormScreenProps) {
           setValue('name', found.name);
           setValue('description', found.description || '');
           setValue('price', found.price);
-          setValue('stock', found.stock);
+          setValue('stock', found.stock ?? 0);
           setValue('category', found.category || '');
           setValue('imageUrl', found.imageUrl || '');
         }
@@ -80,11 +80,11 @@ export default function ProductFormScreen({ user }: ProductFormScreenProps) {
         return;
       }
 
-      const data = await productsApi.getProductById(productId);
+      const data = await productsApi.getProductById(productId, user?.shopId);
       setValue('name', data.name);
       setValue('description', data.description || '');
       setValue('price', data.price);
-      setValue('stock', data.stock);
+      setValue('stock', data.stock ?? 0);
       setValue('category', data.category || '');
       setValue('imageUrl', data.imageUrl || '');
     } catch (err) {
@@ -99,6 +99,7 @@ export default function ProductFormScreen({ user }: ProductFormScreenProps) {
     setIsSaving(true);
     try {
       const productData: CreateProductData | UpdateProductData = {
+        shopId: user?.shopId ?? '',
         name: data.name.trim(),
         description: data.description?.trim() || undefined,
         price: data.price,

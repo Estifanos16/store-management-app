@@ -4,6 +4,19 @@ export type UserRole = 'owner' | 'seller';
 
 export type ItemStatus = 'in_stock' | 'sold' | 'returned' | 'damaged' | 'lost';
 
+export interface ShopMembership {
+  shopId: string;
+  role: 'OWNER' | 'SELLER';
+  active?: boolean;
+  shop?: {
+    id: string;
+    name: string;
+    currency?: string;
+    address?: string | null;
+    phone?: string | null;
+  };
+}
+
 export interface User {
   id: string;
   name: string;
@@ -12,6 +25,7 @@ export interface User {
   role: UserRole;
   shopId: string;
   active: boolean;
+  memberships?: ShopMembership[];
 }
 
 export interface Product {

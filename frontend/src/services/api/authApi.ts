@@ -1,12 +1,6 @@
-import Constants from 'expo-constants';
 import * as SecureStore from 'expo-secure-store';
 import { User } from '../../types/auth';
-
-const API_BASE_URL = Constants.expoConfig?.extra?.EXPO_PUBLIC_API_BASE_URL || 
-                     process.env.EXPO_PUBLIC_API_BASE_URL || 
-                     'http://localhost:3000';
-
-const TOKEN_KEY = 'auth_token';
+import { API_BASE_URL, TOKEN_KEY } from './client';
 const USE_MOCK_KEY = 'use_mock_auth';
 
 // Mock user data for development
@@ -107,6 +101,7 @@ interface BackendUser {
 }
 
 const shouldUseMock = async (): Promise<boolean> => {
+  if (!__DEV__) return false;
   const useMock = await SecureStore.getItemAsync(USE_MOCK_KEY);
   return useMock === 'true';
 };
@@ -189,8 +184,8 @@ export const authApi = {
 
     const useMock = await shouldUseMock();
 
-    // Handle mock token
-    if (token.startsWith('mock-token-')) {
+    // Handle mock token (development only)
+    if (__DEV__ && token.startsWith('mock-token-')) {
       const mockUserId = await SecureStore.getItemAsync('mock_user_id');
       if (mockUserId) {
         const mockUser = Object.values(MOCK_USERS).find(u => u.id === mockUserId);

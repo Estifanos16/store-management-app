@@ -1,15 +1,14 @@
-import { StyleSheet, View, Text, ScrollView, TextInput, Alert, ActivityIndicator } from 'react-native';
+import { StyleSheet, View, Text, ScrollView, TextInput, Alert, ActivityIndicator, TouchableOpacity } from 'react-native';
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
-import Constants from 'expo-constants';
+import { useState, useEffect } from 'react';
 
 import Colors from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
 import { Button, Card } from '@/src/components/common';
 import { productsApi } from '@/src/services/api/productsApi';
+import { categoriesApi, Category } from '@/src/services/api/categoriesApi';
+import { API_BASE_URL } from '@/src/services/api/client';
 import { useAuth } from '@/src/contexts/AuthContext';
-
-const API_BASE_URL = Constants.expoConfig?.extra?.EXPO_PUBLIC_API_BASE_URL || 'http://localhost:3000';
 
 export default function NewProductScreen() {
   const router = useRouter();
@@ -18,11 +17,19 @@ export default function NewProductScreen() {
   const { currentShop } = useAuth();
   
   const [name, setName] = useState('');
-  const [category, setCategory] = useState('');
+  const [categoryId, setCategoryId] = useState<string | undefined>(undefined);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [description, setDescription] = useState('');
   const [brand, setBrand] = useState('');
   const [price, setPrice] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    if (!currentShop) return;
+    categoriesApi.getCategories(currentShop.id)
+      .then(setCategories)
+      .catch((error) => console.error('Failed to load categories:', error));
+  }, [currentShop]);
 
   const handleSave = async () => {
     if (!currentShop) {
@@ -73,18 +80,21 @@ export default function NewProductScreen() {
         name: name.trim(),
         description: description.trim() || undefined,
         brand: brand.trim() || undefined,
+        categoryId,
         defaultSellingPrice: parseFloat(price),
       });
 
       console.log('Product created successfully:', result);
 
-      Alert.alert('Success', 'Product created successfully', [
+      Alert.alert('Product Created', 'Product created successfully. Register its inventory items now?', [
         {
-          text: 'OK',
-          onPress: () => {
-            // Navigate back and refresh the products list
-            router.replace('/(tabs)/products');
-          },
+          text: 'Later',
+          style: 'cancel',
+          onPress: () => router.replace('/(tabs)/products'),
+        },
+        {
+          text: 'Register Inventory',
+          onPress: () => router.replace(`/items/register?productId=${result.id}`),
         },
       ]);
     } catch (error) {
@@ -126,13 +136,23 @@ export default function NewProductScreen() {
 
           <View style={styles.field}>
             <Text style={[styles.label, { color: colors.text }]}>Category</Text>
-            <TextInput
-              style={[styles.input, { backgroundColor: colors.card, borderColor: colors.border, color: colors.text }]}
-              placeholder="Enter category (optional)"
-              placeholderTextColor={colors.textSecondary}
-              value={category}
-              onChangeText={setCategory}
-            />
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoryRow}>
+              <TouchableOpacity
+                style={[styles.categoryChip, { borderColor: colors.border }, !categoryId && { backgroundColor: colors.primary, borderColor: colors.primary }]}
+                onPress={() => setCategoryId(undefined)}
+              >
+                <Text style={[styles.categoryChipText, { color: colors.text }, !categoryId && { color: '#fff' }]}>None</Text>
+              </TouchableOpacity>
+              {categories.map((category) => (
+                <TouchableOpacity
+                  key={category.id}
+                  style={[styles.categoryChip, { borderColor: colors.border }, categoryId === category.id && { backgroundColor: colors.primary, borderColor: colors.primary }]}
+                  onPress={() => setCategoryId(category.id)}
+                >
+                  <Text style={[styles.categoryChipText, { color: colors.text }, categoryId === category.id && { color: '#fff' }]}>{category.name}</Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
           </View>
 
           <View style={styles.field}>
@@ -217,6 +237,21 @@ const styles = StyleSheet.create({
     fontSize: 16,
     minHeight: 100,
     textAlignVertical: 'top',
+  },
+  categoryRow: {
+    flexDirection: 'row',
+    gap: 8,
+    paddingVertical: 4,
+  },
+  categoryChip: {
+    borderWidth: 1,
+    borderRadius: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+  },
+  categoryChipText: {
+    fontSize: 14,
+    fontWeight: '500',
   },
   actions: {
     gap: 12,

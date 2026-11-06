@@ -19,7 +19,7 @@ const itemCreateSchema = z.object({
 
 const itemStatusSchema = z.object({
   shopId: z.string().min(1),
-  status: z.enum(['IN_STOCK', 'SOLD', 'RETURNED', 'DAMAGED']),
+  status: z.enum(['IN_STOCK', 'SOLD', 'RETURNED', 'DAMAGED', 'LOST']),
   reason: z.string().optional(),
 });
 
@@ -34,7 +34,7 @@ const itemsRoutes: FastifyPluginAsync = async (fastify) => {
         required: ['shopId'],
         properties: {
           shopId: { type: 'string' },
-          status: { type: 'string', enum: ['IN_STOCK', 'SOLD', 'RETURNED', 'DAMAGED'] },
+          status: { type: 'string', enum: ['IN_STOCK', 'SOLD', 'RETURNED', 'DAMAGED', 'LOST'] },
         },
       },
       response: {
@@ -194,7 +194,7 @@ const itemsRoutes: FastifyPluginAsync = async (fastify) => {
         required: ['shopId', 'status'],
         properties: {
           shopId: { type: 'string' },
-          status: { type: 'string', enum: ['IN_STOCK', 'SOLD', 'RETURNED', 'DAMAGED'] },
+          status: { type: 'string', enum: ['IN_STOCK', 'SOLD', 'RETURNED', 'DAMAGED', 'LOST'] },
           reason: { type: 'string' },
         },
       },

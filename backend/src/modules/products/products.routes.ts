@@ -14,6 +14,34 @@ const productBody = z.object({
 
 const productPatch = productBody.partial();
 
+const EMPTY_STOCK = { available: 0, sold: 0, damaged: 0, returned: 0, lost: 0 };
+
+const getStockCounts = async (shopId: string, productIds: string[]) => {
+  const counts = new Map<string, { available: number; sold: number; damaged: number; returned: number; lost: number }>(
+    productIds.map((id) => [id, { ...EMPTY_STOCK }]),
+  );
+  if (productIds.length === 0) return counts;
+
+  const rows = await prisma.item.groupBy({
+    by: ['productId', 'status'],
+    where: { shopId, productId: { in: productIds } },
+    _count: { _all: true },
+  });
+
+  for (const row of rows) {
+    const entry = counts.get(row.productId);
+    if (!entry) continue;
+    const key = row.status === 'IN_STOCK' ? 'available' : (row.status.toLowerCase() as keyof typeof entry);
+    entry[key] += row._count._all;
+  }
+  return counts;
+};
+
+const withStockCounts = <T extends { id: string }>(product: T, counts: Map<string, any>) => ({
+  ...product,
+  stockCounts: counts.get(product.id) ?? { ...EMPTY_STOCK },
+});
+
 const productsRoutes: FastifyPluginAsync = async (fastify) => {
   const getShopIdFromQuery = (request: any) => {
     const shopId = request.query?.shopId ?? request.body?.shopId ?? request.params?.shopId;
@@ -50,8 +78,9 @@ const productsRoutes: FastifyPluginAsync = async (fastify) => {
       include: { category: true },
       orderBy: { createdAt: 'desc' },
     });
+    const counts = await getStockCounts(shopId, products.map((p) => p.id));
 
-    reply.send({ products });
+    reply.send({ products: products.map((p) => withStockCounts(p, counts)) });
   });
 
   fastify.post('/products', {
@@ -90,9 +119,11 @@ const productsRoutes: FastifyPluginAsync = async (fastify) => {
         defaultSellingPrice: payload.defaultSellingPrice,
         archived: payload.archived ?? false,
       },
+      include: { category: true },
     });
+    const counts = await getStockCounts(payload.shopId, [product.id]);
 
-    reply.code(201).send({ product });
+    reply.code(201).send({ product: withStockCounts(product, counts) });
   });
 
   fastify.get('/products/:productId', {
@@ -135,7 +166,8 @@ const productsRoutes: FastifyPluginAsync = async (fastify) => {
       return;
     }
 
-    reply.send({ product });
+    const counts = await getStockCounts(shopId, [product.id]);
+    reply.send({ product: withStockCounts(product, counts) });
   });
 
   fastify.patch('/products/:productId', {
@@ -192,9 +224,11 @@ const productsRoutes: FastifyPluginAsync = async (fastify) => {
         defaultSellingPrice: payload.defaultSellingPrice,
         archived: payload.archived,
       },
+      include: { category: true },
     });
+    const counts = await getStockCounts(shopId, [product.id]);
 
-    reply.send({ product });
+    reply.send({ product: withStockCounts(product, counts) });
   });
 };
 

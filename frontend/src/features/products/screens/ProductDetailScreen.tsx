@@ -57,7 +57,7 @@ export default function ProductDetailScreen({ user }: ProductDetailScreenProps) 
         return;
       }
 
-      const data = await productsApi.getProductById(productId);
+      const data = await productsApi.getProductById(productId, user?.shopId);
       setProduct(data);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load product');
