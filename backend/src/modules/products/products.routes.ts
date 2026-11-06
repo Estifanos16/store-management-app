@@ -190,7 +190,7 @@ const productsRoutes: FastifyPluginAsync = async (fastify) => {
         description: payload.description,
         brand: payload.brand,
         defaultSellingPrice: payload.defaultSellingPrice,
-        active: payload.active,
+        archived: payload.archived,
       },
     });
 

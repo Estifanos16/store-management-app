@@ -130,6 +130,30 @@ export async function buildServer() {
 
   await registerSwagger(app);
 
+  // Global error handler (must be set before registering routes so encapsulated
+  // route contexts inherit it)
+  app.setErrorHandler((error, request, reply) => {
+    const errorMessage = error instanceof Error && error.message ? error.message : 'Internal Server Error';
+    const statusCode = (error as { statusCode?: unknown })?.statusCode;
+
+    if (typeof statusCode === 'number' && statusCode >= 400 && statusCode < 500) {
+      const label = statusCode === 401 ? 'Unauthorized' : statusCode === 403 ? 'Forbidden' : statusCode === 404 ? 'Not Found' : 'Bad Request';
+      reply.code(statusCode).send({ error: label, message: errorMessage });
+    } else if (errorMessage.startsWith('Unauthorized')) {
+      reply.code(401).send({ error: 'Unauthorized', message: errorMessage.replace('Unauthorized: ', '') });
+    } else if (errorMessage.startsWith('Forbidden')) {
+      reply.code(403).send({ error: 'Forbidden', message: errorMessage.replace('Forbidden: ', '') });
+    } else if (errorMessage.startsWith('Bad Request')) {
+      reply.code(400).send({ error: 'Bad Request', message: errorMessage.replace('Bad Request: ', '') });
+    } else {
+      app.log.error({ err: error, url: request.url }, 'Unhandled server error');
+      reply.code(500).send({
+        error: 'Internal Server Error',
+        message: env.NODE_ENV === 'production' ? 'Something went wrong.' : errorMessage,
+      });
+    }
+  });
+
   app.get('/health', {
     schema: {
       tags: ['Health'],
@@ -158,19 +182,6 @@ export async function buildServer() {
   await app.register(expensesRoutes, { prefix: '/api' });
   await app.register(reportsRoutes, { prefix: '/api' });
   await app.register(syncRoutes, { prefix: '/api' });
-
-  app.setErrorHandler((error, request, reply) => {
-    if (error instanceof Error && error.message === 'Unauthorized') {
-      reply.code(401).send({ error: 'Unauthorized', message: 'Authentication required.' });
-      return;
-    }
-
-    app.log.error({ err: error, url: request.url }, 'Unhandled server error');
-    reply.code(500).send({
-      error: 'Internal Server Error',
-      message: env.NODE_ENV === 'production' ? 'Something went wrong.' : error instanceof Error ? error.message : 'Unknown error',
-    });
-  });
 
   return app;
 }
