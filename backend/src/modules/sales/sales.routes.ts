@@ -1,5 +1,6 @@
 import { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
+import crypto from 'node:crypto';
 import prisma from '../../lib/prisma.js';
 
 const saleCreateSchema = z.object({
@@ -111,6 +112,11 @@ const salesRoutes: FastifyPluginAsync = async (fastify) => {
         const product = await tx.product.findUnique({ where: { id: item.productId } });
         const unitPrice = entry.unitPrice ?? item.sellingPrice ?? product?.defaultSellingPrice ?? 0;
         const itemDiscount = entry.discount ?? 0;
+        if (itemDiscount > Number(unitPrice)) {
+          const error = new Error(`Discount for item ${entry.itemId} exceeds its selling price.`);
+          (error as any).statusCode = 400;
+          throw error;
+        }
         const lineTotal = Number(unitPrice) - Number(itemDiscount);
         totalAmount += lineTotal;
 
@@ -124,7 +130,7 @@ const salesRoutes: FastifyPluginAsync = async (fastify) => {
         data: {
           shopId: payload.shopId,
           sellerId: requestUser.id,
-          saleNumber: `SALE-${Date.now()}`,
+          saleNumber: `SALE-${Date.now()}-${crypto.randomBytes(4).toString('hex')}`,
           status: 'COMPLETED',
           paymentMethod: payload.paymentMethod,
           discount: totalDiscount,
@@ -143,9 +149,11 @@ const salesRoutes: FastifyPluginAsync = async (fastify) => {
             saleId: sale.id,
             itemId: record.itemId,
             productId: record.productId,
-            unitPrice: record.unitPrice,
+            costPrice: item.costPrice,
+            sellingPrice: record.unitPrice,
             discount: record.itemDiscount,
             totalAmount: record.lineTotal,
+            quantity: 1,
           },
         });
 

@@ -80,6 +80,14 @@ const reportsRoutes: FastifyPluginAsync = async (fastify) => {
 
     await fastify.requireShopAccess(shopId)(request, reply);
 
+    // NOTE: returned items are NOT netted out of revenue or COGS. ReturnRecord
+    // rows do not currently link back to their Sale/SaleItem (saleId is never
+    // populated by POST /returns), so a returned sale still contributes its
+    // totalAmount to revenue and its costPrice*quantity to COGS. Gross profit
+    // is unaffected (both sides remain counted), but revenue and COGS are
+    // overstated by the value of returned sales. To fix this properly, returns
+    // would need to create negative SaleItem rows (or adjustment records)
+    // against the original sale so reports can sum net amounts.
     const sales = await prisma.sale.findMany({
       where: { shopId },
       include: { saleItems: true },
@@ -87,7 +95,7 @@ const reportsRoutes: FastifyPluginAsync = async (fastify) => {
 
     const totalRevenue = sales.reduce((sum: number, sale: any) => sum + Number(sale.totalAmount), 0);
     const costOfGoodsSold = sales.reduce((sum: number, sale: any) => {
-      const soldItemsCost = sale.saleItems.reduce((inner: number, item: any) => inner + Number(item.unitPrice), 0);
+      const soldItemsCost = sale.saleItems.reduce((sum: number, item: any) => sum + Number(item.costPrice) * (item.quantity ?? 1), 0);
       return sum + soldItemsCost;
     }, 0);
 
